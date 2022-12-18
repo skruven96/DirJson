@@ -1,3 +1,10 @@
+//
+// dirjson.h - v0.0
+//
+// Copyright (c) Jesper Jansson and contributors. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+//
+
 #ifndef DIR_JSON_H
 #define DIR_JSON_H
 #include <stdio.h>
