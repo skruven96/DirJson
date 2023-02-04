@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 typedef struct json_read_context json_read_context;
+typedef struct json_write_context json_write_context;
 typedef struct json_callbacks_object json_callbacks_object;
 
 // ===============================================================================
@@ -28,18 +29,19 @@ typedef struct {
 // Object Callbacks
 // ===============================================================================
 
+#define JSON_OPTIONAL  0
 #define JSON_MANDATORY 1
 
 typedef void(*json_member_callback)(json_read_context* Context, void* Ptr);
-typedef void(*json_unknown_key_callback)(json_read_context* Context, void* Ptr, json_string Key);
+typedef void(*json_key_callback)(json_read_context* Context, void* Ptr, json_string Key);
 
 typedef struct {
     const char* Key;
     json_member_callback Callback;
-    int Mandatory; // If
+    int Mandatory;
 } json_member;
 
-json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCount, json_unknown_key_callback UnknownKeyCallback);
+json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCount, json_key_callback UnknownKeyCallback);
 void JsonDestroyObject(json_callbacks_object* Object);
 
 
@@ -53,10 +55,11 @@ json_read_context* JsonReadFromString(const char* JsonString);
 void JsonReadDestroyContext(json_read_context* Context);
 
 void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* Start, const char* OnePastLast,
-                                    const char* FormatString, ...);
+                                        const char* FormatString, ...);
 const char* JsonReadError(json_read_context* Context);
 
 void        JsonReadObjectUsingCallbacks(json_read_context* Context, json_callbacks_object* Object, void* Ptr);
+int         JsonReadObject(json_read_context* Context, json_string* KeyOut);
 int         JsonReadArray( json_read_context* Context);
 int         JsonReadBool(  json_read_context* Context);
 json_s64    JsonReadS64(   json_read_context* Context);
@@ -79,7 +82,6 @@ int JsonReadNextIsNull(  json_read_context* Context);
 // Writing
 // ===============================================================================
 
-typedef struct json_write_context json_write_context;
 typedef void(*json_write_callback)(json_write_context*, char* Data, int Size);
 
 json_write_context* JsonWriteInitializeContextTargetString(int StartBufferSize);
@@ -147,7 +149,7 @@ void JsonWriteNull(       json_write_context* Context);
 
 struct json_callbacks_object {
     int SlotsCount, MandatoryMemberCount;
-    json_unknown_key_callback UnknownKeyCallback;
+    json_key_callback UnknownKeyCallback;
     json_member_callback* MemberCallbacks;
     int* MemberKeys;
 };
@@ -160,6 +162,7 @@ struct json_read_context {
     
     const char* StartOfCurrentLine;
     int LineNumber;
+    int ShouldReadValueNext; // NOTE: If false a comma, }, ] or EOF should be read. Else a value.
     
     const char* Error;
     
@@ -217,7 +220,7 @@ static void ReportUnkownMemberCallback(json_read_context* Context, void* Ptr, js
     free(KeyCopy);
 }
 
-json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCount, json_unknown_key_callback UnknownKeyCallback) {
+json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCount, json_key_callback UnknownKeyCallback) {
     int SlotsCount = (MemberCount * 10) / 8 + 1;
     int MandatoryMemberCount = 0;
     size_t StringsByteCount = 0;
@@ -345,6 +348,7 @@ static json_read_context* __JsonCreateReadContext() {
     
     Context->StartOfCurrentLine = Context->JsonData;
     Context->LineNumber = 1;
+    Context->ShouldReadValueNext = 1;
     
     Context->Error = 0;
     
@@ -443,7 +447,7 @@ void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* 
         return;
     
     int Line   = !Start ? -1 : Context->LineNumber;
-    int Column = !Start ? -1 : (int)(Context->CurrentChar - Context->StartOfCurrentLine) + 1;
+    int Column = !Start ? -1 : (int)(Start - Context->StartOfCurrentLine) + 1;
     
     int AmountWritten = 0;
     if (DIR_JSON_ERROR_PREFIX_STRING) { // Write prefix string
@@ -508,16 +512,22 @@ void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* 
             }
         }
         
+        if (AmountSearchedForwards + AmountSearchedBackwards > DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT) {
+            if (AmountSearchedForwards > DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT / 2) {
+                EndOneBefore = OnePastLast + DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT / 2;
+            }
+            if (AmountSearchedBackwards > DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT / 2) {
+                EndOneBefore = Start - DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT / 2;
+            }
+        }
+        
         AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "\n > ");
         if (AmountSearchedBackwards == DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT)
             AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "...");
         
         const char* Iterator = StartFrom;
-        while (Iterator < EndOneBefore) {
-            if (*Iterator)
-                AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, *Iterator);
-            else 
-                AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "<eof>");
+        while (*Iterator && Iterator < EndOneBefore) {
+            AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, *Iterator);
             Iterator += 1;
         }
         
@@ -533,10 +543,6 @@ void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* 
             while (Iterator < EndOneBefore) {
                 if (Iterator >= Start && Iterator < OnePastLast) {
                     AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, DIR_JSON_ERROR_HIGHLIGHT_CARROT);
-                    if (*Iterator == '\0')
-                        AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "    ");
-                } else if (*Iterator == '\0')  {
-                    AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "     ");
                 } else {
                     AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, *Iterator == '\t' ? '\t' : ' ');
                 }
@@ -558,119 +564,103 @@ const char* JsonReadError(json_read_context* Context) {
     return Context->Error;
 }
 
-void JsonReadObjectUsingCallbacks(json_read_context* Context, json_callbacks_object* Object, void* Ptr) {
-    static const char   NULL_STR[]      = "null";
-    static const size_t NULL_STR_LENGTH = sizeof(NULL_STR) - 1;
-    if (memcmp(Context->CurrentChar, NULL_STR, NULL_STR_LENGTH) == 0) {
-        Context->CurrentChar += NULL_STR_LENGTH;
+int JsonReadObject(json_read_context* Context, json_string* KeyOut) {
+    if (Context->ShouldReadValueNext) {
+        if (!__JsonEatCharacter(Context, '{')) {
+            JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                               "Expected a object. ");
+            return 0;
+        }
+    } else if (__JsonEatCharacter(Context, '}')) {
         __JsonEatWhiteSpaces(Context);
-        
-        if (Object->MandatoryMemberCount != 0) {
-            JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar - NULL_STR_LENGTH, Context->CurrentChar,
-                                               "Got null parsing object when the object has mandatory members. ");
-        }
-        
-        return;
-    } 
-    
-    if (__JsonEatCharacter(Context, '{')) {
-        __JsonEatWhiteSpaces(Context);
-        const char* EndOfObject = Context->CurrentChar;
-        
-        int MandatoryMembersFound = 0;
-        if (!__JsonEatCharacter(Context, '}')) {
-            while (1) {
-                json_string Key = JsonReadString(Context);
-                if (!Key.Data) return;
-                unsigned int Hash = __JsonHashString(Key.Data);
-                
-                unsigned int SlotIndex =  Hash % Object->SlotsCount;
-                
-                int Found = 0;
-                int IsMandatory;
-                while (Object->MemberKeys[SlotIndex]) {
-                    IsMandatory = Object->MemberKeys[SlotIndex] & __Json_Mandatory_Flag;
-                    char* SlotKey = (char*)Object + (Object->MemberKeys[SlotIndex] & ~__Json_Mandatory_Flag);
-                    
-                    if (strcmp(Key.Data, SlotKey) == 0) {
-                        Found = 1;
-                        break;
-                    }
-                    
-                    SlotIndex = (SlotIndex + 1) % Object->SlotsCount;
-                }
-                
-                if (!__JsonEatCharacter(Context, ':')) {
-                    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                                       "A colon needs to follow the key for each member.");
-                    return;
-                } else {
-                    __JsonEatWhiteSpaces(Context);
-                    if (__JsonEatCharacter(Context, ',')) {
-                        JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar - 1, Context->CurrentChar,
-                                                           "A value needs to follow the colon, got a ','.");
-                        return;
-                    } else {
-                        if (Found) {
-                            if (IsMandatory)
-                                MandatoryMembersFound += 1;
-                            Object->MemberCallbacks[SlotIndex](Context, Ptr);
-                        } else {
-                            Object->UnknownKeyCallback(Context, Ptr, Key);
-                        }
-                    }
-                }
-                
-                if (__JsonEatCharacter(Context, ',')) {
-                    __JsonEatWhiteSpaces(Context);
-                } else if (__JsonEatCharacter(Context, '}')) {
-                    __JsonEatWhiteSpaces(Context);
-                    EndOfObject = Context->CurrentChar - 1;
-                    break;
-                } else {
-                    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                                       "Expected a ',' or '}'. ");
-                    return;
-                }
-            }
-        }
-        if (MandatoryMembersFound != Object->MandatoryMemberCount) {
-            JsonReadReportErrorIfNoErrorExists(Context, EndOfObject, EndOfObject + 1, 
-                                               "Not all mandatory members where found. ");
-            return;
-        }
-    } else {
+        return 0;
+    } else if (!__JsonEatCharacter(Context, ',')) {
         JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                           "Expected a object. ");
+                                           "Expected a ',' or '}'. ");
+        return 0;
+    }
+    __JsonEatWhiteSpaces(Context);
+    
+    Context->ShouldReadValueNext = 1;
+    *KeyOut = JsonReadString(Context);
+    if (!KeyOut->Data) {
+        return 0;
+    }
+    
+    if (!__JsonEatCharacter(Context, ':')) {
+        JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                           "A colon needs to follow the key for each member.");
+        return 0;
+    }
+    __JsonEatWhiteSpaces(Context);
+    
+    Context->ShouldReadValueNext = 1;
+    return 1;
+}
+
+void JsonReadObjectUsingCallbacks(json_read_context* Context, json_callbacks_object* Object, void* Ptr) {
+    int MandatoryMembersFound = 0;
+    json_string Key;
+    while (JsonReadObject(Context, &Key)) {
+        unsigned int Hash = __JsonHashString(Key.Data);
+        
+        unsigned int SlotIndex =  Hash % Object->SlotsCount;
+        
+        int Found = 0;
+        int IsMandatory;
+        while (Object->MemberKeys[SlotIndex]) {
+            IsMandatory = Object->MemberKeys[SlotIndex] & __Json_Mandatory_Flag;
+            char* SlotKey = (char*)Object + (Object->MemberKeys[SlotIndex] & ~__Json_Mandatory_Flag);
+            
+            if (strcmp(Key.Data, SlotKey) == 0) {
+                Found = 1;
+                break;
+            }
+            
+            SlotIndex = (SlotIndex + 1) % Object->SlotsCount;
+        }
+        
+        if (Found) {
+            if (IsMandatory)
+                MandatoryMembersFound += 1;
+            Object->MemberCallbacks[SlotIndex](Context, Ptr);
+        } else {
+            Object->UnknownKeyCallback(Context, Ptr, Key);
+        }
+    }
+    
+    if (MandatoryMembersFound != Object->MandatoryMemberCount) {
+        JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar - 1, Context->CurrentChar, 
+                                           "Not all mandatory members where found. ");
+        return;
     }
 }
 
 int JsonReadArray(json_read_context* Context) {
-    int Result;
-    switch (*Context->CurrentChar) {
-        case '[': Result = 1; break;
-        case ',': Result = 1; break;
-        case ']': Result = 0; break;
-        default: {
+    if (Context->ShouldReadValueNext) {
+        if (!__JsonEatCharacter(Context, '[')) {
             JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
-                                               "Expected a '[' or ',' or ']'. ");
+                                               "Expected an array. ");
             return 0;
         }
-    }
-    
-    Context->CurrentChar += 1;
-    __JsonEatWhiteSpaces(Context);
-    
-    if (Result && *Context->CurrentChar == ',') {
-        JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
-                                           "Expected a value. ");
+        __JsonEatWhiteSpaces(Context);
+    } else if (__JsonEatCharacter(Context, ']')) {
+        __JsonEatWhiteSpaces(Context);
+        return 0;
+    } else if (!__JsonEatCharacter(Context, ',')) {
+        JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                           "Expected a ',' or ']'. ");
         return 0;
     }
     
-    return Result;
+    Context->ShouldReadValueNext = 1;
+    return 1;
 }
 
 int JsonReadBool(json_read_context* Context) {
+    assert(Context->ShouldReadValueNext);
+    Context->ShouldReadValueNext = 0;
+    
     int Result;
     static const char TRUE_STR[]  = "true";
     static const char FALSE_STR[] = "false";
@@ -686,12 +676,17 @@ int JsonReadBool(json_read_context* Context) {
         Result = 0;
     }
     __JsonEatWhiteSpaces(Context);
+    
     return Result;
 }
 
 json_s64 JsonReadS64(json_read_context* Context) {
+    assert(Context->ShouldReadValueNext);
+    Context->ShouldReadValueNext = 0;
+    
     const char* CurrentChar = Context->CurrentChar;
     json_s64 Value = 0;
+    
     int IsNegative = *CurrentChar == '-';
     if (IsNegative) ++CurrentChar;
     
@@ -707,7 +702,7 @@ json_s64 JsonReadS64(json_read_context* Context) {
     }
     
     if (*CurrentChar == '.') {
-        JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+        JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
                                            "Expected a integer but got a decimal point. ");
         return 0;
     }
@@ -715,7 +710,7 @@ json_s64 JsonReadS64(json_read_context* Context) {
     if (*CurrentChar == 'e' || *CurrentChar == 'E') {
         CurrentChar += 1;
         if (*CurrentChar == '-') {
-            JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+            JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
                                                "Expected a integer, negative exponent is not allowed for integers. ");
             return 0;
         } else if (*CurrentChar == '+') {
@@ -723,7 +718,7 @@ json_s64 JsonReadS64(json_read_context* Context) {
         }
         
         if (*CurrentChar < '0' || *CurrentChar > '9') {
-            JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+            JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
                                                "The exponent needs to contain atleast one digit (0-9). ");
             return 0;
         }
@@ -750,6 +745,9 @@ json_s64 JsonReadS64(json_read_context* Context) {
 }
 
 json_f64 JsonReadF64(json_read_context* Context) {
+    assert(Context->ShouldReadValueNext);
+    Context->ShouldReadValueNext = 0;
+    
     const char* CurrentChar = Context->CurrentChar;
     
     if (*CurrentChar == '-') {
@@ -757,7 +755,7 @@ json_f64 JsonReadF64(json_read_context* Context) {
     }
     
     if (*CurrentChar < '0' || *CurrentChar > '9') {
-        JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+        JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
                                            "Expected a number, needs to start with a digit (0-9). ");
         return 0;
     }
@@ -770,7 +768,7 @@ json_f64 JsonReadF64(json_read_context* Context) {
         CurrentChar += 1;
         
         if (*CurrentChar < '0' || *CurrentChar > '9') {
-            JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+            JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
                                                "Fraction is empty, needs to contain atleast one digit (0-9). ");
             return 0;
         }
@@ -787,7 +785,7 @@ json_f64 JsonReadF64(json_read_context* Context) {
         }
         
         if (*CurrentChar < '0' || *CurrentChar > '9') {
-            JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+            JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
                                                "Exponent is empty, needs to contain atleast one digit (0-9). ");
             return 0;
         }
@@ -806,6 +804,9 @@ json_f64 JsonReadF64(json_read_context* Context) {
 }
 
 json_string JsonReadString(json_read_context* Context) {
+    assert(Context->ShouldReadValueNext);
+    Context->ShouldReadValueNext = 0;
+    
     const json_string ErrorResult = { 0, 0 };
     const char* CurrentChar = Context->CurrentChar;
     int Length = 0;
@@ -853,14 +854,14 @@ json_string JsonReadString(json_read_context* Context) {
                         Value |= Char - 'A';
                     else {
                         JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
-                                                            "A unicode escape sequnce needs to be followed with 4 hex digits. ");
+                                                            "A unicode escape sequence needs to be followed by 4 hex digits. ");
                         return ErrorResult;
                     }
                     ++CurrentChar;
                 }
                 
-                if (Value >= 0x10000) {
-                    if (Value >= 0x200000) {
+                if (Value >= 0x1000) {
+                    if (Value >= 0x2000) {
                         JsonReadReportErrorIfNoErrorExists(Context,CurrentChar - 4, CurrentChar,
                                                            "Given unicode was to large. ");
                         return ErrorResult;
@@ -882,13 +883,13 @@ json_string JsonReadString(json_read_context* Context) {
                 }
                 continue;
             } else {
-                JsonReadReportErrorIfNoErrorExists(Context, CurrentChar - 1, CurrentChar,
+                JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
                                                    "Unrecognised escape character. ");
                 return ErrorResult;
             }
         } else if (Char == '\n' || Char == '\r') {
             JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
-                                               "Reached end of the line before ending the string. ");
+                                               "Reached end of the line before closing the string. ");
             return ErrorResult;
         }
         
@@ -898,7 +899,7 @@ json_string JsonReadString(json_read_context* Context) {
     
     if (Char != '"') {
         JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
-                                           "Reached end of the file before ending the string. ");
+                                           "Reached end of the file before closing the string. ");
         return ErrorResult;
     }
     CurrentChar += 1;
@@ -915,6 +916,9 @@ json_string JsonReadString(json_read_context* Context) {
 }
 
 void JsonReadNull(json_read_context* Context) {
+    assert(Context->ShouldReadValueNext);
+    Context->ShouldReadValueNext = 0;
+    
     static const char NULL_STR[]  = "null";
     if (memcmp(Context->CurrentChar, NULL_STR, sizeof(NULL_STR) - 1) == 0) {
         Context->CurrentChar += sizeof(NULL_STR) - 1;
@@ -946,7 +950,7 @@ int JsonReadNextIsBool(  json_read_context* Context) {
 
 int JsonReadNextIsNumber(json_read_context* Context) { 
     return (*Context->CurrentChar >= '0' && *Context->CurrentChar <= '9') || 
-        *Context->CurrentChar == '-';  
+            *Context->CurrentChar == '-';  
 }
 
 int JsonReadNextIsString(json_read_context* Context) { 
