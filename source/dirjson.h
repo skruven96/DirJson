@@ -9,6 +9,12 @@
 #define DIR_JSON_H
 #include <stdio.h>
 
+#ifdef __cplusplus
+#define JSON_EXTERN extern "C"
+#else
+#define JSON_EXTERN
+#endif
+
 typedef struct json_read_context json_read_context;
 typedef struct json_write_context json_write_context;
 typedef struct json_callbacks_object json_callbacks_object;
@@ -41,41 +47,41 @@ typedef struct {
     int Mandatory;
 } json_member;
 
-json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCount, json_key_callback UnknownKeyCallback);
-void JsonDestroyObject(json_callbacks_object* Object);
+JSON_EXTERN json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCount, json_key_callback UnknownKeyCallback);
+JSON_EXTERN void JsonDestroyObject(json_callbacks_object* Object);
 
 
 // ===============================================================================
 // Reading
 // ===============================================================================
 
-json_read_context* JsonReadReadFile(FILE* File);
-json_read_context* JsonReadOpenAndReadFile(const char* FilePath);
-json_read_context* JsonReadFromString(const char* JsonString);
-void JsonReadDestroyContext(json_read_context* Context);
+JSON_EXTERN json_read_context* JsonReadReadFile(FILE* File);
+JSON_EXTERN json_read_context* JsonReadOpenAndReadFile(const char* FilePath);
+JSON_EXTERN json_read_context* JsonReadFromString(const char* JsonString);
+JSON_EXTERN void JsonReadDestroyContext(json_read_context* Context);
 
-void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* Start, const char* OnePastLast,
+JSON_EXTERN void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* Start, const char* OnePastLast,
                                         const char* FormatString, ...);
-const char* JsonReadError(json_read_context* Context);
+JSON_EXTERN const char* JsonReadError(json_read_context* Context);
 
-void        JsonReadObjectUsingCallbacks(json_read_context* Context, json_callbacks_object* Object, void* Ptr);
-int         JsonReadObject(json_read_context* Context, json_string* KeyOut);
-int         JsonReadArray( json_read_context* Context);
-int         JsonReadBool(  json_read_context* Context);
-json_s64    JsonReadS64(   json_read_context* Context);
-json_f64    JsonReadF64(   json_read_context* Context);
-json_string JsonReadString(json_read_context* Context);
-void        JsonReadNull(  json_read_context* Context);
-void        JsonReadEOF(   json_read_context* Context);
+JSON_EXTERN void        JsonReadObjectUsingCallbacks(json_read_context* Context, json_callbacks_object* Object, void* Ptr);
+JSON_EXTERN int         JsonReadObject(json_read_context* Context, json_string* KeyOut);
+JSON_EXTERN int         JsonReadArray( json_read_context* Context);
+JSON_EXTERN int         JsonReadBool(  json_read_context* Context);
+JSON_EXTERN json_s64    JsonReadS64(   json_read_context* Context);
+JSON_EXTERN json_f64    JsonReadF64(   json_read_context* Context);
+JSON_EXTERN json_string JsonReadString(json_read_context* Context);
+JSON_EXTERN void        JsonReadNull(  json_read_context* Context);
+JSON_EXTERN void        JsonReadEOF(   json_read_context* Context);
 
 // Returns true if the next value is of the respective type.
 // Doesn't check that the value is legally formatted. For example JsonReadNextIsNull will return 1 for noll.
-int JsonReadNextIsObject(json_read_context* Context);
-int JsonReadNextIsArray( json_read_context* Context);
-int JsonReadNextIsBool(  json_read_context* Context);
-int JsonReadNextIsNumber(json_read_context* Context);
-int JsonReadNextIsString(json_read_context* Context);
-int JsonReadNextIsNull(  json_read_context* Context);
+JSON_EXTERN int JsonReadNextIsObject(json_read_context* Context);
+JSON_EXTERN int JsonReadNextIsArray( json_read_context* Context);
+JSON_EXTERN int JsonReadNextIsBool(  json_read_context* Context);
+JSON_EXTERN int JsonReadNextIsNumber(json_read_context* Context);
+JSON_EXTERN int JsonReadNextIsString(json_read_context* Context);
+JSON_EXTERN int JsonReadNextIsNull(  json_read_context* Context);
 
 
 // ===============================================================================
@@ -84,26 +90,26 @@ int JsonReadNextIsNull(  json_read_context* Context);
 
 typedef void(*json_write_callback)(json_write_context*, char* Data, int Size);
 
-json_write_context* JsonWriteInitializeContextTargetString(int StartBufferSize);
-json_write_context* JsonWriteInitializeContextTargetFile(FILE* File, int BufferSize);
-json_write_context* JsonWriteInitializeContextTargetFilePath(const char* FilePath, int BufferSize);
-json_write_context* JsonWriteInitializeContextTargetCustom(json_write_callback Callback, int BufferSize);
+JSON_EXTERN json_write_context* JsonWriteInitializeContextTargetString(int StartBufferSize);
+JSON_EXTERN json_write_context* JsonWriteInitializeContextTargetFile(FILE* File, int BufferSize);
+JSON_EXTERN json_write_context* JsonWriteInitializeContextTargetFilePath(const char* FilePath, int BufferSize);
+JSON_EXTERN json_write_context* JsonWriteInitializeContextTargetCustom(json_write_callback Callback, int BufferSize);
 
-void JsonWriteSetPrettyPrint(json_write_context* Context, int ShouldPrettyPrint);
+JSON_EXTERN void JsonWriteSetPrettyPrint(json_write_context* Context, int ShouldPrettyPrint);
 
-char* JsonWriteFinalize(      json_write_context* Context);
-void  JsonWriteDestroyContext(json_write_context* Context);
+JSON_EXTERN char* JsonWriteFinalize(      json_write_context* Context);
+JSON_EXTERN void  JsonWriteDestroyContext(json_write_context* Context);
 
-void JsonWriteStartObject(json_write_context* Context);
-void JsonWriteKey(        json_write_context* Context, const char* Key);
-void JsonWriteEndObject(  json_write_context* Context);
-void JsonWriteStartArray( json_write_context* Context);
-void JsonWriteEndArray(   json_write_context* Context);
-void JsonWriteBool(       json_write_context* Context, int Value);
-void JsonWriteS64(        json_write_context* Context, json_s64 Value);
-void JsonWriteF64(        json_write_context* Context, json_f64 Value);
-void JsonWriteString(     json_write_context* Context, const char* Str);
-void JsonWriteNull(       json_write_context* Context);
+JSON_EXTERN void JsonWriteStartObject(json_write_context* Context);
+JSON_EXTERN void JsonWriteKey(        json_write_context* Context, const char* Key);
+JSON_EXTERN void JsonWriteEndObject(  json_write_context* Context);
+JSON_EXTERN void JsonWriteStartArray( json_write_context* Context);
+JSON_EXTERN void JsonWriteEndArray(   json_write_context* Context);
+JSON_EXTERN void JsonWriteBool(       json_write_context* Context, int Value);
+JSON_EXTERN void JsonWriteS64(        json_write_context* Context, json_s64 Value);
+JSON_EXTERN void JsonWriteF64(        json_write_context* Context, json_f64 Value);
+JSON_EXTERN void JsonWriteString(     json_write_context* Context, const char* Str);
+JSON_EXTERN void JsonWriteNull(       json_write_context* Context);
 
 
 // ===============================================================================
