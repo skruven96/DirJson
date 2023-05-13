@@ -649,7 +649,6 @@ int JsonReadArray(json_read_context* Context) {
                                                "Expected an array. ");
             return 0;
         }
-        __JsonEatWhiteSpaces(Context);
     } else if (__JsonEatCharacter(Context, ']')) {
         __JsonEatWhiteSpaces(Context);
         return 0;
@@ -659,6 +658,7 @@ int JsonReadArray(json_read_context* Context) {
         return 0;
     }
     
+    __JsonEatWhiteSpaces(Context);
     Context->ShouldReadValueNext = 1;
     return 1;
 }
