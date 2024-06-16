@@ -17,175 +17,175 @@ typedef struct {
   const char* Json;
   const char* Carrot;
   const char* Message;
-  void (*Function)(json_read_context* Context);
+  void (*Function)(dj_read_context* Context);
 } test_error;
 
 typedef struct {
   const char* Name;
   const char* Json;
-  void (*Function)(json_read_context* Context);
+  void (*Function)(dj_read_context* Context);
 } test_success;
 
 static const char TestReadExpectedArray__Json[]    = "123";
 static const char TestReadExpectedArray__Carrot[]  = "^  ";
 static const char TestReadExpectedArray__Message[] = "Expected an array. ";
-void TestReadExpectedArray(json_read_context* Context) {
-  JsonReadArray(Context);
+void TestReadExpectedArray(dj_read_context* Context) {
+  djReadArray(Context);
 }
 
 static const char TestReadBool__Json[]    = "nah";
 static const char TestReadBool__Carrot[]  = "^  ";
 static const char TestReadBool__Message[] = "Expected a boolean ('true' or 'false'. )";
-void TestReadBool(json_read_context* Context) {
-  JsonReadBool(Context);
+void TestReadBool(dj_read_context* Context) {
+  djReadBool(Context);
 }
 
 static const char TestReadS64IllegalStart__Json[]    = ".123";
 static const char TestReadS64IllegalStart__Carrot[]  = "^   ";
 static const char TestReadS64IllegalStart__Message[] = "Expected a integer, needs to start with a digit (0-9). ";
-void TestReadS64IllegalStart(json_read_context* Context) {
-  JsonReadS64(Context);
+void TestReadS64IllegalStart(dj_read_context* Context) {
+  djReadS64(Context);
 }
 
 static const char TestReadS64GotDecimal__Json[]    = "1.23";
 static const char TestReadS64GotDecimal__Carrot[]  = " ^  ";
 static const char TestReadS64GotDecimal__Message[] = "Expected a integer but got a decimal point. ";
-void TestReadS64GotDecimal(json_read_context* Context) {
-  JsonReadS64(Context);
+void TestReadS64GotDecimal(dj_read_context* Context) {
+  djReadS64(Context);
 }
 
 static const char TestReadS64NegativeExponent__Json[]    = "123e-123";
 static const char TestReadS64NegativeExponent__Carrot[]  = "    ^   ";
 static const char TestReadS64NegativeExponent__Message[] = "Expected a integer, negative exponent is not allowed for integers. ";
-void TestReadS64NegativeExponent(json_read_context* Context) {
-  JsonReadS64(Context);
+void TestReadS64NegativeExponent(dj_read_context* Context) {
+  djReadS64(Context);
 }
 
 static const char TestReadS64EmptyExponent__Json[]    = "123e";
 static const char TestReadS64EmptyExponent__Carrot[]  = "    ^";
 static const char TestReadS64EmptyExponent__Message[] = "The exponent needs to contain atleast one digit (0-9). ";
-void TestReadS64EmptyExponent(json_read_context* Context) {
-  JsonReadS64(Context);
+void TestReadS64EmptyExponent(dj_read_context* Context) {
+  djReadS64(Context);
 }
 
 static const char TestReadF64IllegalStart__Json[]    = "-e12";
 static const char TestReadF64IllegalStart__Carrot[]  = " ^  ";
 static const char TestReadF64IllegalStart__Message[] = "Expected a number, needs to start with a digit (0-9). ";
-void TestReadF64IllegalStart(json_read_context* Context) {
-  JsonReadF64(Context);
+void TestReadF64IllegalStart(dj_read_context* Context) {
+  djReadF64(Context);
 }
 
 static const char TestReadF64EmptyFraction__Json[]    = "123.e123";
 static const char TestReadF64EmptyFraction__Carrot[]  = "    ^   ";
 static const char TestReadF64EmptyFraction__Message[] = "Fraction is empty, needs to contain atleast one digit (0-9). ";
-void TestReadF64EmptyFraction(json_read_context* Context) {
-  JsonReadF64(Context);
+void TestReadF64EmptyFraction(dj_read_context* Context) {
+  djReadF64(Context);
 }
 
 static const char TestReadF64EmptyExponent__Json[]    = "123.123e-+";
 static const char TestReadF64EmptyExponent__Carrot[]  = "         ^";
 static const char TestReadF64EmptyExponent__Message[] = "Exponent is empty, needs to contain atleast one digit (0-9). ";
-void TestReadF64EmptyExponent(json_read_context* Context) {
-  JsonReadF64(Context);
+void TestReadF64EmptyExponent(dj_read_context* Context) {
+  djReadF64(Context);
 }
 
 static const char TestReadStringNotAString__Json[]    = "'Hello, world!'";
 static const char TestReadStringNotAString__Carrot[]  = "^              ";
 static const char TestReadStringNotAString__Message[] = "Expected a string. ";
-void TestReadStringNotAString(json_read_context* Context) {
-  JsonReadString(Context);
+void TestReadStringNotAString(dj_read_context* Context) {
+  djReadString(Context);
 }
 
 static const char TestReadStringTooFewHex__Json[]    = "\"Hello\\uABCK, world!\"";
 static const char TestReadStringTooFewHex__Carrot[]  = "           ^         ";
 static const char TestReadStringTooFewHex__Message[] = "A unicode escape sequence needs to be followed by 4 hex digits. ";
-void TestReadStringTooFewHex(json_read_context* Context) {
-  JsonReadString(Context);
+void TestReadStringTooFewHex(dj_read_context* Context) {
+  djReadString(Context);
 }
 
 static const char TestReadStringTooBigUnicode__Json[]    = "\"Hello\\u2001, world!\"";
 static const char TestReadStringTooBigUnicode__Carrot[]  = "        ^^^^         ";
 static const char TestReadStringTooBigUnicode__Message[] = "Given unicode was to large. ";
-void TestReadStringTooBigUnicode(json_read_context* Context) {
-  JsonReadString(Context);
+void TestReadStringTooBigUnicode(dj_read_context* Context) {
+  djReadString(Context);
 }
 
 static const char TestReadStringIllegalEscapeSequence__Json[]    = "\"Hello\\h, world!\"";
 static const char TestReadStringIllegalEscapeSequence__Carrot[]  = "       ^         ";
 static const char TestReadStringIllegalEscapeSequence__Message[] = "Unrecognised escape character. ";
-void TestReadStringIllegalEscapeSequence(json_read_context* Context) {
-  JsonReadString(Context);
+void TestReadStringIllegalEscapeSequence(dj_read_context* Context) {
+  djReadString(Context);
 }
 
 static const char TestReadEmptyObject__Json[] = " { }";
-void TestReadEmptyObject(json_read_context* Context) {
-  json_string Key;
-  JsonReadKey(Context, &Key);
+void TestReadEmptyObject(dj_read_context* Context) {
+  dj_string Key;
+  djReadKey(Context, &Key);
 }
 
 static const char TestReadObject__Json[] = " { \"key1\": 13, \"\": true, \"afdsf\": [ ] }";
-void TestReadObject(json_read_context* Context) {
-  EXPECT_TRUE(JsonReadExpectKey(Context, "key1") == 1);
-  EXPECT_TRUE(JsonReadS64(Context) == 13);
-  EXPECT_TRUE(JsonReadExpectKey(Context, "") == 1);
-  EXPECT_TRUE(JsonReadBool(Context) == 1);
-  EXPECT_TRUE(JsonReadExpectKey(Context, "afdsf") == 1);
-  EXPECT_TRUE(JsonReadArray(Context) == 0);
-  EXPECT_TRUE(JsonReadEndObject(Context) == 1);
+void TestReadObject(dj_read_context* Context) {
+  EXPECT_TRUE(djReadExpectKey(Context, "key1") == 1);
+  EXPECT_TRUE(djReadS64(Context) == 13);
+  EXPECT_TRUE(djReadExpectKey(Context, "") == 1);
+  EXPECT_TRUE(djReadBool(Context) == 1);
+  EXPECT_TRUE(djReadExpectKey(Context, "afdsf") == 1);
+  EXPECT_TRUE(djReadArray(Context) == 0);
+  EXPECT_TRUE(djReadEndObject(Context) == 1);
 }
 
 static const char TestReadEmptyObjectInObject__Json[] = " { \"key\" : {  } }";
-void TestReadEmptyObjectInObject(json_read_context* Context) {
-  json_string Key;
-  EXPECT_TRUE(JsonReadExpectKey(Context, "key") == 1);
+void TestReadEmptyObjectInObject(dj_read_context* Context) {
+  dj_string Key;
+  EXPECT_TRUE(djReadExpectKey(Context, "key") == 1);
   {
-    EXPECT_TRUE(JsonReadKey(Context, &Key) == 0);
+    EXPECT_TRUE(djReadKey(Context, &Key) == 0);
   }
-  EXPECT_TRUE(JsonReadEndObject(Context) == 1);
+  EXPECT_TRUE(djReadEndObject(Context) == 1);
 }
 
 static const char TestReadEmptyArray__Json[] = "  [  ]";
-void TestReadEmptyArray(json_read_context* Context) {
-  EXPECT_TRUE(JsonReadArray(Context) == 0);
+void TestReadEmptyArray(dj_read_context* Context) {
+  EXPECT_TRUE(djReadArray(Context) == 0);
 }
 
 static const char TestReadArray__Json[] = "  [ 123  , {} , true,false ,\"Hello!!\"]";
-void TestReadArray(json_read_context* Context) {
-  json_string Key;
-  EXPECT_TRUE(JsonReadArray(Context) == 1);
-  EXPECT_TRUE(JsonReadS64(Context) == 123);
-  EXPECT_TRUE(JsonReadArray(Context) == 1);
-  EXPECT_TRUE(JsonReadKey(Context, &Key) == 0);
-  EXPECT_TRUE(JsonReadArray(Context) == 1);
-  EXPECT_TRUE(JsonReadBool(Context) == 1);
-  EXPECT_TRUE(JsonReadArray(Context) == 1);
-  EXPECT_TRUE(JsonReadBool(Context) == 0);
-  EXPECT_TRUE(JsonReadArray(Context) == 1);
-  EXPECT_TRUE(strcmp(JsonReadString(Context).Data, "Hello!!") == 0);
-  EXPECT_TRUE(JsonReadArray(Context) == 0);
+void TestReadArray(dj_read_context* Context) {
+  dj_string Key;
+  EXPECT_TRUE(djReadArray(Context) == 1);
+  EXPECT_TRUE(djReadS64(Context) == 123);
+  EXPECT_TRUE(djReadArray(Context) == 1);
+  EXPECT_TRUE(djReadKey(Context, &Key) == 0);
+  EXPECT_TRUE(djReadArray(Context) == 1);
+  EXPECT_TRUE(djReadBool(Context) == 1);
+  EXPECT_TRUE(djReadArray(Context) == 1);
+  EXPECT_TRUE(djReadBool(Context) == 0);
+  EXPECT_TRUE(djReadArray(Context) == 1);
+  EXPECT_TRUE(strcmp(djReadString(Context).Data, "Hello!!") == 0);
+  EXPECT_TRUE(djReadArray(Context) == 0);
 }
 
 static const char TestReadNestedArrays__Json[] = "  [ [ 1 ] , [] , [ 2, 3 ] ]";
-void TestReadNestedArrays(json_read_context* Context) {
-  EXPECT_TRUE(JsonReadArray(Context) == 1);
+void TestReadNestedArrays(dj_read_context* Context) {
+  EXPECT_TRUE(djReadArray(Context) == 1);
   {
-    EXPECT_TRUE(JsonReadArray(Context) == 1);
-    EXPECT_TRUE(JsonReadS64(Context) == 1);
-    EXPECT_TRUE(JsonReadArray(Context) == 0);
+    EXPECT_TRUE(djReadArray(Context) == 1);
+    EXPECT_TRUE(djReadS64(Context) == 1);
+    EXPECT_TRUE(djReadArray(Context) == 0);
   }
-  EXPECT_TRUE(JsonReadArray(Context) == 1);
+  EXPECT_TRUE(djReadArray(Context) == 1);
   {
-    EXPECT_TRUE(JsonReadArray(Context) == 0);
+    EXPECT_TRUE(djReadArray(Context) == 0);
   }
-  EXPECT_TRUE(JsonReadArray(Context) == 1);
+  EXPECT_TRUE(djReadArray(Context) == 1);
   {
-    EXPECT_TRUE(JsonReadArray(Context) == 1);
-    EXPECT_TRUE(JsonReadS64(Context) == 2);
-    EXPECT_TRUE(JsonReadArray(Context) == 1);
-    EXPECT_TRUE(JsonReadS64(Context) == 3);
-    EXPECT_TRUE(JsonReadArray(Context) == 0);
+    EXPECT_TRUE(djReadArray(Context) == 1);
+    EXPECT_TRUE(djReadS64(Context) == 2);
+    EXPECT_TRUE(djReadArray(Context) == 1);
+    EXPECT_TRUE(djReadS64(Context) == 3);
+    EXPECT_TRUE(djReadArray(Context) == 0);
   }
-  EXPECT_TRUE(JsonReadArray(Context) == 0);
+  EXPECT_TRUE(djReadArray(Context) == 0);
 }
 
 #define ERROR_TEST(Name) { #Name, Name##__Json, Name##__Carrot, Name##__Message, Name }
@@ -239,7 +239,7 @@ int main(int argc, char* argv[]) {
   for (int TestIndex = 0; TestIndex < ArrayCount(ErrorTests); TestIndex++) {
     test_error* Test = &ErrorTests[TestIndex];
     
-    json_read_context* Context = JsonReadFromString(Test->Json);
+    dj_read_context* Context = djReadFromString(Test->Json);
     
     Test->Function(Context);
     
@@ -252,7 +252,7 @@ int main(int argc, char* argv[]) {
                                  Line, Column, Test->Message, Test->Json, Test->Carrot);
     assert(PrintCount < ArrayCount(ExpectedError) - 1);
     
-    const char* Error = JsonReadError(Context);
+    const char* Error = djReadError(Context);
     int MessageNotEqual = Error ? strcmp(ExpectedError, Error) : 0; 
     if (!Error || MessageNotEqual) {
       printf("Error test case '%s':\n", Test->Name);
@@ -268,16 +268,16 @@ int main(int argc, char* argv[]) {
   for (int TestIndex = 0; TestIndex < ArrayCount(SuccessTests); TestIndex++) {
     test_success* Test = &SuccessTests[TestIndex];
     
-    json_read_context* Context = JsonReadFromString(Test->Json);
+    dj_read_context* Context = djReadFromString(Test->Json);
     
     Test->Function(Context);
     
-    JsonReadEOF(Context);
+    djReadEOF(Context);
     
-    if (JsonReadError(Context)) {
+    if (djReadError(Context)) {
       printf("Succcess test case '%s':\n", Test->Name);
       printf("Json: '%s'\n", Test->Json);
-      printf("Error: '%s'\n", JsonReadError(Context));
+      printf("Error: '%s'\n", djReadError(Context));
       FailedTestCases += 1;
     }
     TotalTestCases += 1;

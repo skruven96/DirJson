@@ -14,38 +14,38 @@
 // READING
 //
 // To read you need a context, there are 3 ways of getting a context:
-//   JsonReadFile(File)                // Reads from an already open file handle (the whole file is read into RAM)
-//   JsonReadOpenAndReadFile(FilePath) // Opens a file and reads the whole file into RAM
-//   JsonReadFromString(JsonString)    // Reads from a string containing json, needs to be null terminated.
-//                                        And kept alive while the context is alive.
+//   djReadFile(File)                // Reads from an already open file handle (the whole file is read into RAM)
+//   djReadOpenAndReadFile(FilePath) // Opens a file and reads the whole file into RAM
+//   djReadFromString(JsonString)    // Reads from a string containing json, needs to be null terminated.
+//                                      And kept alive while the context is alive.
 // Now one have a context and can read the json data, once done reading one should do:
-//   JsonReadError(Context) // Returns a pointer to any error that has occured, null otherwise.
-//                             Instead of checking for errors while parsing one can delay that until the end and assume
-//                             that everything is great in the meantime. In case a error occurs while parsing all the
-//                             reading functions will just return 0. Only the first error will be kept.
-//   JsonReadDestroyContext(Context) // Frees up any resources used
+//   djReadError(Context) // Returns a pointer to any error that has occured, null otherwise.
+//                           Instead of checking for errors while parsing one can delay that until the end and assume
+//                           that everything is great in the meantime. In case a error occurs while parsing all the
+//                           reading functions will just return 0. Only the first error will be kept.
+//   djReadDestroyContext(Context) // Frees up any resources used
 //
 // Reading integers, floating points, strings, booleans
-//   JsonReadBool(Context) // Returns 1 if true and 0 if false, reports an error if neither
-//   JsonReadS64(Context)  // Returns the integer value if a number, reports an error if not a whole number
-//   JsonReadF64(Context)  // Returns the decimal value if a number, reports an error if not a number
-//   JsonReadNull(Context) // Returns 1 if null, reports an error if it's not null
-//   JsonReadEOF(Context)  // Returns 1 if eof is reach, reports an error otherwise
+//   djReadBool(Context) // Returns 1 if true and 0 if false, reports an error if neither
+//   djReadS64(Context)  // Returns the integer value if a number, reports an error if not a whole number
+//   djReadF64(Context)  // Returns the decimal value if a number, reports an error if not a number
+//   djReadNull(Context) // Returns 1 if null, reports an error if it's not null
+//   djReadEOF(Context)  // Returns 1 if eof is reach, reports an error otherwise
 //
 // Reading arrays is as simple as
-//   while (JsonReadArray(Context)) {
-//     // Use any JsonRead to read the value here
+//   while (djReadArray(Context)) {
+//     // Use any djRead to read the value here
 //   }
-// JsonReadArray returns 1 until ']' is reached, incase of an empty array it returns 0 directly.
+// djReadArray returns 1 until ']' is reached, incase of an empty array it returns 0 directly.
 //
 // Reading objects can be done in multiple ways.
 //
 // Looping through all keys and manually checking the keys.
 //   json_string Key;
-//   while (JsonReadKey(Context, &Key)) {
-//     // Check the key and read it's value using any JsonRead method
+//   while (djReadKey(Context, &Key)) {
+//     // Check the key and read it's value using any djRead method
 //   }
-// JsonReadKey returns 1 until '}' is reached, incase of an empty object it returns 0 directly.
+// djReadKey returns 1 until '}' is reached, incase of an empty object it returns 0 directly.
 //
 // Using callbacks
 //   TODO: Improve this, maybe support macros to easier parse directly into the members
@@ -53,13 +53,13 @@
 // Expecting the keys, if the keys comes in a known order they can easily be verified and parsed
 //   struct vec_t { int X, int Y };
 //   struct vec_t Vec;
-//   JsonReadExpectKey(Context, "x");
-//   Vec.X = JsonReadS64(Context);
-//   JsonReadExpectKey(Context, "y");
-//   Vec.X = JsonReadS64(Context);
-//   JsonReadObjectEnd();
-// JsonReadExpectKey reads the next key and verifies checks that it matches the expected. Returns 0 if anything went wrong.
-// JsonReadObjectEnd checks that the end of the object is reached. Returns 0 if anything went wrong.
+//   djReadExpectKey(Context, "x");
+//   Vec.X = djReadS64(Context);
+//   djReadExpectKey(Context, "y");
+//   Vec.X = djReadS64(Context);
+//   djReadObjectEnd();
+// djReadExpectKey reads the next key and verifies checks that it matches the expected. Returns 0 if anything went wrong.
+// djReadObjectEnd checks that the end of the object is reached. Returns 0 if anything went wrong.
 // 
 // WRITING
 //
@@ -70,20 +70,20 @@
 #define DIR_JSON_H
 #include <stdio.h>
 
-typedef struct json_read_context json_read_context;
-typedef struct json_write_context json_write_context;
-typedef struct json_callbacks_object json_callbacks_object;
+typedef struct dj_read_context dj_read_context;
+typedef struct dj_write_context dj_write_context;
+typedef struct dj_callbacks_object dj_callbacks_object;
 
 // ===============================================================================
 // Data Types
 // ===============================================================================
 
-typedef signed long long json_s64;
-typedef double           json_f64;
+typedef signed long long dj_s64;
+typedef double           dj_f64;
 typedef struct {
   size_t Length;
   const char* Data;
-} json_string;
+} dj_string;
 
 
 // ===============================================================================
@@ -93,80 +93,80 @@ typedef struct {
 #define JSON_OPTIONAL  0
 #define JSON_MANDATORY 1
 
-typedef void(*json_member_callback)(json_read_context* Context, void* Ptr);
-typedef void(*json_key_callback)(json_read_context* Context, void* Ptr, json_string Key);
+typedef void(*dj_member_callback)(dj_read_context* Context, void* Ptr);
+typedef void(*dj_key_callback)(dj_read_context* Context, void* Ptr, dj_string Key);
 
 typedef struct {
   const char* Key;
-  json_member_callback Callback;
+  dj_member_callback Callback;
   int Mandatory;
-} json_member;
+} dj_member;
 
-json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCount, json_key_callback UnknownKeyCallback);
-void JsonDestroyObject(json_callbacks_object* Object);
+dj_callbacks_object* djInitializeObject(dj_member* Members, int MemberCount, dj_key_callback UnknownKeyCallback);
+void djDestroyObject(dj_callbacks_object* Object);
 
 // ===============================================================================
 // Reading
 // ===============================================================================
 
-json_read_context* JsonReadReadFile(FILE* File);
-json_read_context* JsonReadOpenAndReadFile(const char* FilePath);
-json_read_context* JsonReadFromString(const char* JsonString);
-void JsonReadDestroyContext(json_read_context* Context);
+dj_read_context* djReadReadFile(FILE* File);
+dj_read_context* djReadOpenAndReadFile(const char* FilePath);
+dj_read_context* djReadFromString(const char* JsonString);
+void djReadDestroyContext(dj_read_context* Context);
 
-void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* Start, const char* OnePastLast,
-                                        const char* FormatString, ...);
-const char* JsonReadError(json_read_context* Context);
+void djReadReportErrorIfNoErrorExists(dj_read_context* Context, const char* Start, const char* OnePastLast,
+                                      const char* FormatString, ...);
+const char* djReadError(dj_read_context* Context);
 
-void        JsonReadObjectUsingCallbacks(json_read_context* Context, json_callbacks_object* Object, void* Ptr);
-int         JsonReadKey(      json_read_context* Context, json_string* KeyOut);
-int         JsonReadExpectKey(json_read_context* Context, const char* Key);
-int         JsonReadObjectEnd(json_read_context* Context);
+void      djReadObjectUsingCallbacks(dj_read_context* Context, dj_callbacks_object* Object, void* Ptr);
+int       djReadKey(      dj_read_context* Context, dj_string* KeyOut);
+int       djReadExpectKey(dj_read_context* Context, const char* Key);
+int       djReadObjectEnd(dj_read_context* Context);
 
-int         JsonReadArray( json_read_context* Context);
-int         JsonReadBool(  json_read_context* Context);
-json_s64    JsonReadS64(   json_read_context* Context);
-json_f64    JsonReadF64(   json_read_context* Context);
-json_string JsonReadString(json_read_context* Context);
-void        JsonReadNull(  json_read_context* Context);
-void        JsonReadEOF(   json_read_context* Context);
+int       djReadArray( dj_read_context* Context);
+int       djReadBool(  dj_read_context* Context);
+dj_s64    djReadS64(   dj_read_context* Context);
+dj_f64    djReadF64(   dj_read_context* Context);
+dj_string djReadString(dj_read_context* Context);
+void      djReadNull(  dj_read_context* Context);
+void      djReadEOF(   dj_read_context* Context);
 
 // Returns true if the next value is of the respective type.
-// Doesn't check that the value is legally formatted. For example JsonReadNextIsNull will return 1 for noll.
-int JsonReadNextIsObject(json_read_context* Context);
-int JsonReadNextIsArray( json_read_context* Context);
-int JsonReadNextIsBool(  json_read_context* Context);
-int JsonReadNextIsNumber(json_read_context* Context);
-int JsonReadNextIsString(json_read_context* Context);
-int JsonReadNextIsNull(  json_read_context* Context);
+// Doesn't check that the value is legally formatted. For example djReadNextIsNull will return 1 for noll.
+int djReadNextIsObject(dj_read_context* Context);
+int djReadNextIsArray( dj_read_context* Context);
+int djReadNextIsBool(  dj_read_context* Context);
+int djReadNextIsNumber(dj_read_context* Context);
+int djReadNextIsString(dj_read_context* Context);
+int djReadNextIsNull(  dj_read_context* Context);
 
 
 // ===============================================================================
 // Writing
 // ===============================================================================
 
-typedef void(*json_write_callback)(json_write_context*, char* Data, int Size);
+typedef void(*dj_write_callback)(dj_write_context*, char* Data, int Size);
 
-json_write_context* JsonWriteInitializeContextTargetString(int StartBufferSize);
-json_write_context* JsonWriteInitializeContextTargetFile(FILE* File, int BufferSize);
-json_write_context* JsonWriteInitializeContextTargetFilePath(const char* FilePath, int BufferSize);
-json_write_context* JsonWriteInitializeContextTargetCustom(json_write_callback Callback, int BufferSize);
+dj_write_context* djWriteInitializeContextTargetString(int StartBufferSize);
+dj_write_context* djWriteInitializeContextTargetFile(FILE* File, int BufferSize);
+dj_write_context* djWriteInitializeContextTargetFilePath(const char* FilePath, int BufferSize);
+dj_write_context* djWriteInitializeContextTargetCustom(dj_write_callback Callback, int BufferSize);
 
-void JsonWriteSetPrettyPrint(json_write_context* Context, int ShouldPrettyPrint);
+void djWriteSetPrettyPrint(dj_write_context* Context, int ShouldPrettyPrint);
 
-char* JsonWriteFinalize(      json_write_context* Context);
-void  JsonWriteDestroyContext(json_write_context* Context);
+char* djWriteFinalize(      dj_write_context* Context);
+void  djWriteDestroyContext(dj_write_context* Context);
 
-void JsonWriteStartObject(json_write_context* Context);
-void JsonWriteKey(        json_write_context* Context, const char* Key);
-void JsonWriteEndObject(  json_write_context* Context);
-void JsonWriteStartArray( json_write_context* Context);
-void JsonWriteEndArray(   json_write_context* Context);
-void JsonWriteBool(       json_write_context* Context, int Value);
-void JsonWriteS64(        json_write_context* Context, json_s64 Value);
-void JsonWriteF64(        json_write_context* Context, json_f64 Value);
-void JsonWriteString(     json_write_context* Context, const char* Str);
-void JsonWriteNull(       json_write_context* Context);
+void djWriteStartObject(dj_write_context* Context);
+void djWriteKey(        dj_write_context* Context, const char* Key);
+void djWriteEndObject(  dj_write_context* Context);
+void djWriteStartArray( dj_write_context* Context);
+void djWriteEndArray(   dj_write_context* Context);
+void djWriteBool(       dj_write_context* Context, int Value);
+void djWriteS64(        dj_write_context* Context, dj_s64 Value);
+void djWriteF64(        dj_write_context* Context, dj_f64 Value);
+void djWriteString(     dj_write_context* Context, const char* Str);
+void djWriteNull(       dj_write_context* Context);
 
 
 // ===============================================================================
@@ -210,14 +210,14 @@ void JsonWriteNull(       json_write_context* Context);
 // Struct declerations
 // ===============================================================================
 
-struct json_callbacks_object {
+struct dj_callbacks_object {
   int SlotsCount, MandatoryMemberCount;
-  json_key_callback UnknownKeyCallback;
-  json_member_callback* MemberCallbacks;
+  dj_key_callback UnknownKeyCallback;
+  dj_member_callback* MemberCallbacks;
   int* MemberKeys;
 };
 
-struct json_read_context {
+struct dj_read_context {
   char* JsonDataOwnagePtr;
   const char* JsonData;
   const char* CurrentChar;
@@ -232,10 +232,10 @@ struct json_read_context {
   char* StringBuffer;
 };
 
-struct json_write_context {
+struct dj_write_context {
   int ShouldCloseFile;
   FILE* TargetFile;
-  json_write_callback Callback;
+  dj_write_callback Callback;
   
   const char* Error;
   
@@ -253,7 +253,7 @@ struct json_write_context {
 // Helper Functions
 // ===============================================================================
 
-static unsigned int __JsonHashString(const char* String) {
+static unsigned int _djHashString(const char* String) {
   unsigned int Hash = 5381;
   int Char;
   
@@ -267,9 +267,9 @@ static unsigned int __JsonHashString(const char* String) {
 // Object Callbacks Implementation
 // ===============================================================================
 
-const int __Json_Mandatory_Flag = (1 << 31);
+const int _dj_Mandatory_Flag = (1 << 31);
 
-static void ReportUnkownMemberCallback(json_read_context* Context, void* Ptr, json_string Key) {
+static void ReportUnkownMemberCallback(dj_read_context* Context, void* Ptr, dj_string Key) {
   const char* KeyEndPtr = Context->CurrentChar - 1;
   while (*KeyEndPtr   != '"') --KeyEndPtr;
   const char* KeyStartPtr = KeyEndPtr - 1;
@@ -277,12 +277,12 @@ static void ReportUnkownMemberCallback(json_read_context* Context, void* Ptr, js
   
   char* KeyCopy = malloc(Key.Length + 1);
   memcpy(KeyCopy, Key.Data, Key.Length + 1);
-  JsonReadReportErrorIfNoErrorExists(Context, KeyStartPtr, KeyEndPtr + 1,
-                                     "Unkown member encountered (Key '%s'. )", KeyCopy);
+  djReadReportErrorIfNoErrorExists(Context, KeyStartPtr, KeyEndPtr + 1,
+                                   "Unkown member encountered (Key '%s'. )", KeyCopy);
   free(KeyCopy);
 }
 
-json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCount, json_key_callback UnknownKeyCallback) {
+dj_callbacks_object* djInitializeObject(dj_member* Members, int MemberCount, dj_key_callback UnknownKeyCallback) {
   int SlotsCount = (MemberCount * 10) / 8 + 1;
   int MandatoryMemberCount = 0;
   size_t StringsByteCount = 0;
@@ -295,16 +295,16 @@ json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCoun
     }
   }
   
-  size_t TotalBytes = sizeof(json_callbacks_object);
-  TotalBytes += sizeof(json_member_callback) * SlotsCount;
+  size_t TotalBytes = sizeof(dj_callbacks_object);
+  TotalBytes += sizeof(dj_member_callback) * SlotsCount;
   TotalBytes += sizeof(int)                  * SlotsCount;
   TotalBytes += StringsByteCount;
   
-  json_callbacks_object* Result = calloc(TotalBytes, 1);
+  dj_callbacks_object* Result = calloc(TotalBytes, 1);
   Result->SlotsCount = SlotsCount;
   Result->MandatoryMemberCount = MandatoryMemberCount;
   Result->UnknownKeyCallback = UnknownKeyCallback ? UnknownKeyCallback : ReportUnkownMemberCallback;
-  Result->MemberCallbacks = (json_member_callback*)((char*)Result + sizeof(json_callbacks_object));
+  Result->MemberCallbacks = (dj_member_callback*)((char*)Result + sizeof(dj_callbacks_object));
   Result->MemberKeys      = (int*                 )&Result->MemberCallbacks[SlotsCount];
   assert(((intptr_t)Result->MemberCallbacks % sizeof(Result->MemberCallbacks[0])) == 0);
   assert(((intptr_t)Result->MemberKeys      % sizeof(Result->MemberKeys[0])) == 0);
@@ -312,8 +312,8 @@ json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCoun
   char* StringCopyCurrentChar = (char*)&Result->MemberKeys[SlotsCount];
   
   for (int MemberIndex = 0; MemberIndex < MemberCount; MemberIndex++) {
-    json_member* Member = &Members[MemberIndex];
-    unsigned int Hash = __JsonHashString(Member->Key);
+    dj_member* Member = &Members[MemberIndex];
+    unsigned int Hash = _djHashString(Member->Key);
     
     while (1) {
       unsigned int Index = Hash % SlotsCount;
@@ -325,7 +325,7 @@ json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCoun
         memcpy(StringCopyCurrentChar, Member->Key, Length + 1);
         StringCopyCurrentChar += Length + 1;
         
-        Result->MemberKeys[Index]= Offset | (Member->Mandatory ? __Json_Mandatory_Flag : 0);
+        Result->MemberKeys[Index]= Offset | (Member->Mandatory ? _dj_Mandatory_Flag : 0);
         Result->MemberCallbacks[Index] = Member->Callback;
         
         break;
@@ -340,7 +340,7 @@ json_callbacks_object* JsonInitializeObject(json_member* Members, int MemberCoun
   return Result;
 }
 
-void JsonDestroyObject(json_callbacks_object* Object) {
+void djDestroyObject(dj_callbacks_object* Object) {
   free(Object);
 }
 
@@ -349,7 +349,7 @@ void JsonDestroyObject(json_callbacks_object* Object) {
 // Read Implementation
 // ===============================================================================
 
-static void __JsonEatWhiteSpaces(json_read_context* Context) {
+static void _djEatWhiteSpaces(dj_read_context* Context) {
   const char* CurrentChar = Context->CurrentChar;
   char Char;
   while (Char = *CurrentChar) {
@@ -363,7 +363,7 @@ static void __JsonEatWhiteSpaces(json_read_context* Context) {
   Context->CurrentChar = CurrentChar;
 }
 
-static int __JsonEatCharacter(json_read_context* Context, char Character) {
+static int _djEatCharacter(dj_read_context* Context, char Character) {
   if (*Context->CurrentChar == Character) {
     Context->CurrentChar += 1;
     return 1;
@@ -371,37 +371,37 @@ static int __JsonEatCharacter(json_read_context* Context, char Character) {
   return 0;
 }
 
-static void __JsonIncreaseStringBufferSize(json_read_context* Context) {
+static void _djIncreaseStringBufferSize(dj_read_context* Context) {
   Context->StringBufferSize *= 2;
   Context->StringBuffer = realloc(Context->StringBuffer, Context->StringBufferSize);
   assert(Context->StringBuffer && "JSON: Out of memory. ");
   // TODO: Handle this?
 }
 
-static int __JsonPutCharInBuffer(json_read_context* Context, int LengthBefore, char Char) {
+static int _djPutCharInBuffer(dj_read_context* Context, int LengthBefore, char Char) {
   if (LengthBefore >= Context->StringBufferSize) {
-    __JsonIncreaseStringBufferSize(Context);
+    _djIncreaseStringBufferSize(Context);
   }
   Context->StringBuffer[LengthBefore] = Char;
   return LengthBefore + 1;
 }
 
-static int __JsonPutStringInBuffer(json_read_context* Context, int LengthBefore, const char* String) {
+static int _djPutStringInBuffer(dj_read_context* Context, int LengthBefore, const char* String) {
   while (*String) {
-    LengthBefore = __JsonPutCharInBuffer(Context, LengthBefore, *String);
+    LengthBefore = _djPutCharInBuffer(Context, LengthBefore, *String);
     String += 1;
   }
   return LengthBefore;
 }
 
-static void __JsonInitializationOutOfMemoryError(json_read_context* Context, const char* Error) {
+static void _djInitializationOutOfMemoryError(dj_read_context* Context, const char* Error) {
   Context->Error = Error;
   Context->JsonData    = "\0";
   Context->CurrentChar = Context->JsonData;
 }
 
-static json_read_context* __JsonCreateReadContext() {
-  json_read_context* Context = malloc(sizeof(json_read_context));
+static dj_read_context* _djCreateReadContext() {
+  dj_read_context* Context = malloc(sizeof(dj_read_context));
   assert(Context);
   
   Context->JsonDataOwnagePtr = 0;
@@ -417,15 +417,15 @@ static json_read_context* __JsonCreateReadContext() {
   Context->StringBufferSize = 256;
   Context->StringBuffer = malloc(Context->StringBufferSize);
   if (!Context->StringBuffer) {
-    __JsonInitializationOutOfMemoryError(Context, "Couldn't allocate string buffer. ");
+    _djInitializationOutOfMemoryError(Context, "Couldn't allocate string buffer. ");
     return Context;
   }
   
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   return Context;
 }
 
-static void ReadFile(json_read_context* Context, FILE* File) {
+static void ReadFile(dj_read_context* Context, FILE* File) {
   size_t FileSize;
   {
     int ErrorSeekingEnd = fseek(File, 0, SEEK_END);
@@ -445,7 +445,7 @@ static void ReadFile(json_read_context* Context, FILE* File) {
   
   size_t AmountRead = fread(Data, 1, FileSize, File);
   if (AmountRead != FileSize) {
-    __JsonInitializationOutOfMemoryError(Context, "Couldn't read file. ");
+    _djInitializationOutOfMemoryError(Context, "Couldn't read file. ");
     free(Data);
     return;
   }
@@ -456,25 +456,25 @@ static void ReadFile(json_read_context* Context, FILE* File) {
   Context->CurrentChar        = Data;
   Context->StartOfCurrentLine = Data;
   
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
 }
 
-json_read_context* JsonReadReadFile(FILE* File) {
-  json_read_context* Context = __JsonCreateReadContext();
-  if (!JsonReadError(Context))
+dj_read_context* djReadReadFile(FILE* File) {
+  dj_read_context* Context = _djCreateReadContext();
+  if (!djReadError(Context))
     ReadFile(Context, File);
   return Context;
 }
 
-json_read_context* JsonReadOpenAndReadFile(const char* FilePath) {
-  json_read_context* Context = __JsonCreateReadContext();
+dj_read_context* djReadOpenAndReadFile(const char* FilePath) {
+  dj_read_context* Context = _djCreateReadContext();
   
-  if (JsonReadError(Context))
+  if (djReadError(Context))
     return Context;
   
   FILE* File = fopen(FilePath, "r");
   if (!File) {
-    __JsonInitializationOutOfMemoryError(Context, "Failed to open file. ");
+    _djInitializationOutOfMemoryError(Context, "Failed to open file. ");
     return Context;
   }
   
@@ -487,28 +487,28 @@ json_read_context* JsonReadOpenAndReadFile(const char* FilePath) {
   return Context;
 }
 
-json_read_context* JsonReadFromString(const char* JsonString) {
-  json_read_context* Context = __JsonCreateReadContext();
+dj_read_context* djReadFromString(const char* JsonString) {
+  dj_read_context* Context = _djCreateReadContext();
   
-  if (JsonReadError(Context))
+  if (djReadError(Context))
     return Context;
   
   Context->JsonData           = JsonString;
   Context->CurrentChar        = JsonString;
   Context->StartOfCurrentLine = JsonString;
   
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   
   return Context;
 }
 
-void JsonReadDestroyContext(json_read_context* Context) {
+void djReadDestroyContext(dj_read_context* Context) {
   free(Context->StringBuffer);
   free(Context->JsonDataOwnagePtr);
 }
 
-void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* Start, const char* OnePastLast, 
-                                        const char* FormatString, ...) {
+void djReadReportErrorIfNoErrorExists(dj_read_context* Context, const char* Start, const char* OnePastLast, 
+                                      const char* FormatString, ...) {
   if (Context->Error)
     return;
   
@@ -526,11 +526,11 @@ void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* 
                                   "%d", Value);
         PrefixIterator += 2;
       } else if (*PrefixIterator == '\\' && PrefixIterator[1] == '%') {
-        AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, '\\');
-        AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, '%');
+        AmountWritten = _djPutCharInBuffer(Context, AmountWritten, '\\');
+        AmountWritten = _djPutCharInBuffer(Context, AmountWritten, '%');
         PrefixIterator += 2;
       } else {
-        AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, *PrefixIterator);
+        AmountWritten = _djPutCharInBuffer(Context, AmountWritten, *PrefixIterator);
         PrefixIterator += 1;
       }
     }
@@ -549,7 +549,7 @@ void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* 
       break;
     }
     
-    __JsonIncreaseStringBufferSize(Context);
+    _djIncreaseStringBufferSize(Context);
   }
   va_end(VariableArguments);
   
@@ -587,131 +587,131 @@ void JsonReadReportErrorIfNoErrorExists(json_read_context* Context, const char* 
       }
     }
     
-    AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "\n > ");
+    AmountWritten = _djPutStringInBuffer(Context, AmountWritten, "\n > ");
     if (AmountSearchedBackwards == DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT)
-      AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "...");
+      AmountWritten = _djPutStringInBuffer(Context, AmountWritten, "...");
     
     const char* Iterator = StartFrom;
     while (*Iterator && Iterator < EndOneBefore) {
-      AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, *Iterator);
+      AmountWritten = _djPutCharInBuffer(Context, AmountWritten, *Iterator);
       Iterator += 1;
     }
     
     if (AmountSearchedForwards == DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT)
-      AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "...");
+      AmountWritten = _djPutStringInBuffer(Context, AmountWritten, "...");
     
     if (DIR_JSON_ERROR_HIGHLIGHT_CARROT) {
-      AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "\n > ");
+      AmountWritten = _djPutStringInBuffer(Context, AmountWritten, "\n > ");
       if (AmountSearchedBackwards == DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT)
-        AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "...");
+        AmountWritten = _djPutStringInBuffer(Context, AmountWritten, "...");
       
       const char* Iterator = StartFrom;
       while (Iterator < EndOneBefore) {
         if (Iterator >= Start && Iterator < OnePastLast) {
-          AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, DIR_JSON_ERROR_HIGHLIGHT_CARROT);
+          AmountWritten = _djPutCharInBuffer(Context, AmountWritten, DIR_JSON_ERROR_HIGHLIGHT_CARROT);
         } else {
-          AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, *Iterator == '\t' ? '\t' : ' ');
+          AmountWritten = _djPutCharInBuffer(Context, AmountWritten, *Iterator == '\t' ? '\t' : ' ');
         }
         Iterator += 1;
       }
       
       if (AmountSearchedForwards == DIR_JSON_ERROR_MAX_SHOWN_CONTENT_COUNT)
-        AmountWritten = __JsonPutStringInBuffer(Context, AmountWritten, "...");
+        AmountWritten = _djPutStringInBuffer(Context, AmountWritten, "...");
     }
   }
   
-  AmountWritten = __JsonPutCharInBuffer(Context, AmountWritten, '\0');
+  AmountWritten = _djPutCharInBuffer(Context, AmountWritten, '\0');
   Context->Error = Context->StringBuffer;
   Context->JsonData    = "\0";
   Context->CurrentChar = Context->JsonData;
 }
 
-const char* JsonReadError(json_read_context* Context) {
+const char* djReadError(dj_read_context* Context) {
   return Context->Error;
 }
 
-int JsonReadKey(json_read_context* Context, json_string* KeyOut) {
+int djReadKey(dj_read_context* Context, dj_string* KeyOut) {
   if (Context->ShouldReadValueNext) {
-    if (!__JsonEatCharacter(Context, '{')) {
-      JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                         "Expected a object. ");
+    if (!_djEatCharacter(Context, '{')) {
+      djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                       "Expected a object. ");
       return 0;
     }
-    __JsonEatWhiteSpaces(Context);
+    _djEatWhiteSpaces(Context);
     
-    if (__JsonEatCharacter(Context, '}')) {
+    if (_djEatCharacter(Context, '}')) {
       Context->ShouldReadValueNext = 0;
-      __JsonEatWhiteSpaces(Context);
+      _djEatWhiteSpaces(Context);
       return 0;
     }
     
-    // Context->ShouldReadValueNext = 0; // This is overwritten below to allow JsonReadString to function
-  } else if (__JsonEatCharacter(Context, '}')) {
-    __JsonEatWhiteSpaces(Context);
+    // Context->ShouldReadValueNext = 0; // This is overwritten below to allow djReadString to function
+  } else if (_djEatCharacter(Context, '}')) {
+    _djEatWhiteSpaces(Context);
     return 0;
-  } else if (!__JsonEatCharacter(Context, ',')) {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                       "Expected a ',' or '}'. ");
+  } else if (!_djEatCharacter(Context, ',')) {
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                     "Expected a ',' or '}'. ");
     return 0;
   }
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   
   Context->ShouldReadValueNext = 1;
-  *KeyOut = JsonReadString(Context);
+  *KeyOut = djReadString(Context);
   if (!KeyOut->Data) {
     return 0;
   }
   
-  if (!__JsonEatCharacter(Context, ':')) {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                       "A colon needs to follow the key for each member.");
+  if (!_djEatCharacter(Context, ':')) {
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                     "A colon needs to follow the key for each member.");
     return 0;
   }
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   
   Context->ShouldReadValueNext = 1;
   return 1;
 }
 
-int JsonReadExpectKey(json_read_context* Context, const char* ExpectedKey) {
-  json_string Key;
-  if (JsonReadKey(Context, &Key) == 0) {
+int djReadExpectKey(dj_read_context* Context, const char* ExpectedKey) {
+  dj_string Key;
+  if (djReadKey(Context, &Key) == 0) {
     return 0;
   }
   
   if (strcmp(Key.Data, ExpectedKey) != 0) {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                       "Unexpected key found, expected '%s' got '%s'.", ExpectedKey, Key.Data);
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                     "Unexpected key found, expected '%s' got '%s'.", ExpectedKey, Key.Data);
     return 0;
   }
   
   return 1;
 }
 
-int JsonReadEndObject(json_read_context* Context) {
-  if (!__JsonEatCharacter(Context, '}')) {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                       "Expected end of object.");
+int djReadEndObject(dj_read_context* Context) {
+  if (!_djEatCharacter(Context, '}')) {
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                     "Expected end of object.");
     return 0;
   }
   
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   return 1;
 }
 
-void JsonReadObjectUsingCallbacks(json_read_context* Context, json_callbacks_object* Object, void* Ptr) {
+void djReadObjectUsingCallbacks(dj_read_context* Context, dj_callbacks_object* Object, void* Ptr) {
   int MandatoryMembersFound = 0;
-  json_string Key;
-  while (JsonReadKey(Context, &Key)) {
-    unsigned int Hash = __JsonHashString(Key.Data);
+  dj_string Key;
+  while (djReadKey(Context, &Key)) {
+    unsigned int Hash = _djHashString(Key.Data);
     
     unsigned int SlotIndex =  Hash % Object->SlotsCount;
     
     int Found = 0;
     int IsMandatory;
     while (Object->MemberKeys[SlotIndex]) {
-      IsMandatory = Object->MemberKeys[SlotIndex] & __Json_Mandatory_Flag;
-      char* SlotKey = (char*)Object + (Object->MemberKeys[SlotIndex] & ~__Json_Mandatory_Flag);
+      IsMandatory = Object->MemberKeys[SlotIndex] & _dj_Mandatory_Flag;
+      char* SlotKey = (char*)Object + (Object->MemberKeys[SlotIndex] & ~_dj_Mandatory_Flag);
       
       if (strcmp(Key.Data, SlotKey) == 0) {
         Found = 1;
@@ -731,40 +731,40 @@ void JsonReadObjectUsingCallbacks(json_read_context* Context, json_callbacks_obj
   }
   
   if (MandatoryMembersFound != Object->MandatoryMemberCount) {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar - 1, Context->CurrentChar, 
-                                       "Not all mandatory members where found. ");
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar - 1, Context->CurrentChar, 
+                                     "Not all mandatory members where found. ");
     return;
   }
 }
 
-int JsonReadArray(json_read_context* Context) {
+int djReadArray(dj_read_context* Context) {
   if (Context->ShouldReadValueNext) {
-    if (!__JsonEatCharacter(Context, '[')) {
-      JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
-                                         "Expected an array. ");
+    if (!_djEatCharacter(Context, '[')) {
+      djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+                                       "Expected an array. ");
       return 0;
     }
-    __JsonEatWhiteSpaces(Context);
-    if (__JsonEatCharacter(Context, ']')) {
+    _djEatWhiteSpaces(Context);
+    if (_djEatCharacter(Context, ']')) {
       Context->ShouldReadValueNext = 0;
-      __JsonEatWhiteSpaces(Context);
+      _djEatWhiteSpaces(Context);
       return 0;
     }
-  } else if (__JsonEatCharacter(Context, ']')) {
-    __JsonEatWhiteSpaces(Context);
+  } else if (_djEatCharacter(Context, ']')) {
+    _djEatWhiteSpaces(Context);
     return 0;
-  } else if (!__JsonEatCharacter(Context, ',')) {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
-                                       "Expected a ',' or ']'. ");
+  } else if (!_djEatCharacter(Context, ',')) {
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
+                                     "Expected a ',' or ']'. ");
     return 0;
   }
   
   Context->ShouldReadValueNext = 1;
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   return 1;
 }
 
-int JsonReadBool(json_read_context* Context) {
+int djReadBool(dj_read_context* Context) {
   assert(Context->ShouldReadValueNext);
   Context->ShouldReadValueNext = 0;
   
@@ -778,28 +778,28 @@ int JsonReadBool(json_read_context* Context) {
     Context->CurrentChar += sizeof(FALSE_STR) - 1;
     Result = 0;
   } else {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
-                                       "Expected a boolean ('true' or 'false'. )");
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+                                     "Expected a boolean ('true' or 'false'. )");
     Result = 0;
   }
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   
   return Result;
 }
 
-json_s64 JsonReadS64(json_read_context* Context) {
+dj_s64 djReadS64(dj_read_context* Context) {
   assert(Context->ShouldReadValueNext);
   Context->ShouldReadValueNext = 0;
   
   const char* CurrentChar = Context->CurrentChar;
-  json_s64 Value = 0;
+  dj_s64 Value = 0;
   
   int IsNegative = *CurrentChar == '-';
   if (IsNegative) ++CurrentChar;
   
   if (*CurrentChar < '0' || *CurrentChar > '9') {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
-                                       "Expected a integer, needs to start with a digit (0-9). ");
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+                                     "Expected a integer, needs to start with a digit (0-9). ");
     return 0;
   }
   
@@ -809,24 +809,24 @@ json_s64 JsonReadS64(json_read_context* Context) {
   }
   
   if (*CurrentChar == '.') {
-    JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
-                                       "Expected a integer but got a decimal point. ");
+    djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
+                                     "Expected a integer but got a decimal point. ");
     return 0;
   }
   
   if (*CurrentChar == 'e' || *CurrentChar == 'E') {
     CurrentChar += 1;
     if (*CurrentChar == '-') {
-      JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
-                                         "Expected a integer, negative exponent is not allowed for integers. ");
+      djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
+                                       "Expected a integer, negative exponent is not allowed for integers. ");
       return 0;
     } else if (*CurrentChar == '+') {
       CurrentChar += 1;
     }
     
     if (*CurrentChar < '0' || *CurrentChar > '9') {
-      JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
-                                         "The exponent needs to contain atleast one digit (0-9). ");
+      djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
+                                       "The exponent needs to contain atleast one digit (0-9). ");
       return 0;
     }
     
@@ -837,7 +837,7 @@ json_s64 JsonReadS64(json_read_context* Context) {
       ++CurrentChar;
     }
     
-    json_s64 Base = 10;
+    dj_s64 Base = 10;
     while (Exponent) {
       if (Exponent % 2)
         Value *= Base;
@@ -847,11 +847,11 @@ json_s64 JsonReadS64(json_read_context* Context) {
   }
   
   Context->CurrentChar = CurrentChar;
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   return IsNegative ? -Value : Value;
 }
 
-json_f64 JsonReadF64(json_read_context* Context) {
+dj_f64 djReadF64(dj_read_context* Context) {
   assert(Context->ShouldReadValueNext);
   Context->ShouldReadValueNext = 0;
   
@@ -862,8 +862,8 @@ json_f64 JsonReadF64(json_read_context* Context) {
   }
   
   if (*CurrentChar < '0' || *CurrentChar > '9') {
-    JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
-                                       "Expected a number, needs to start with a digit (0-9). ");
+    djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
+                                     "Expected a number, needs to start with a digit (0-9). ");
     return 0;
   }
   
@@ -875,8 +875,8 @@ json_f64 JsonReadF64(json_read_context* Context) {
     CurrentChar += 1;
     
     if (*CurrentChar < '0' || *CurrentChar > '9') {
-      JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
-                                         "Fraction is empty, needs to contain atleast one digit (0-9). ");
+      djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
+                                       "Fraction is empty, needs to contain atleast one digit (0-9). ");
       return 0;
     }
     
@@ -892,8 +892,8 @@ json_f64 JsonReadF64(json_read_context* Context) {
     }
     
     if (*CurrentChar < '0' || *CurrentChar > '9') {
-      JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
-                                         "Exponent is empty, needs to contain atleast one digit (0-9). ");
+      djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1, 
+                                       "Exponent is empty, needs to contain atleast one digit (0-9). ");
       return 0;
     }
     
@@ -903,24 +903,24 @@ json_f64 JsonReadF64(json_read_context* Context) {
   }
   
   char* EndPtr;
-  json_f64 Result = strtod(Context->CurrentChar, &EndPtr); 
+  dj_f64 Result = strtod(Context->CurrentChar, &EndPtr); 
   assert(EndPtr == CurrentChar); // TODO: Look up if this is valid, for now keep it to test. 
   Context->CurrentChar = CurrentChar;
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   return Result;
 }
 
-json_string JsonReadString(json_read_context* Context) {
+dj_string djReadString(dj_read_context* Context) {
   assert(Context->ShouldReadValueNext);
   Context->ShouldReadValueNext = 0;
   
-  const json_string ErrorResult = { 0, 0 };
+  const dj_string ErrorResult = { 0, 0 };
   const char* CurrentChar = Context->CurrentChar;
   int Length = 0;
   
   if (*CurrentChar != '"') {
-    JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
-                                       "Expected a string. ", Context->LineNumber);
+    djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
+                                     "Expected a string. ", Context->LineNumber);
     return ErrorResult;
   }
   CurrentChar += 1;
@@ -960,8 +960,8 @@ json_string JsonReadString(json_read_context* Context) {
           else if (Char >= 'A' && Char <= 'F')
             Value |= Char - 'A';
           else {
-            JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
-                                               "A unicode escape sequence needs to be followed by 4 hex digits. ");
+            djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
+                                             "A unicode escape sequence needs to be followed by 4 hex digits. ");
             return ErrorResult;
           }
           ++CurrentChar;
@@ -969,60 +969,60 @@ json_string JsonReadString(json_read_context* Context) {
         
         if (Value >= 0x1000) {
           if (Value >= 0x2000) {
-            JsonReadReportErrorIfNoErrorExists(Context,CurrentChar - 4, CurrentChar,
-                                               "Given unicode was to large. ");
+            djReadReportErrorIfNoErrorExists(Context,CurrentChar - 4, CurrentChar,
+                                             "Given unicode was to large. ");
             return ErrorResult;
           }
           
-          Length = __JsonPutCharInBuffer(Context, Length, 0x80 | ((Char >> 0 ) & 0x3F));
-          Length = __JsonPutCharInBuffer(Context, Length, 0x80 | ((Char >> 6 ) & 0x3F));
-          Length = __JsonPutCharInBuffer(Context, Length, 0x80 | ((Char >> 12) & 0x3F));
-          Length = __JsonPutCharInBuffer(Context, Length, 0xF0 | ((Char >> 18) & 0x07));
+          Length = _djPutCharInBuffer(Context, Length, 0x80 | ((Char >> 0 ) & 0x3F));
+          Length = _djPutCharInBuffer(Context, Length, 0x80 | ((Char >> 6 ) & 0x3F));
+          Length = _djPutCharInBuffer(Context, Length, 0x80 | ((Char >> 12) & 0x3F));
+          Length = _djPutCharInBuffer(Context, Length, 0xF0 | ((Char >> 18) & 0x07));
         } else if (Value >= 0x800) {
-          Length = __JsonPutCharInBuffer(Context, Length, 0x80 | ((Char >> 0 ) & 0x3F));
-          Length = __JsonPutCharInBuffer(Context, Length, 0x80 | ((Char >> 6 ) & 0x3F));
-          Length = __JsonPutCharInBuffer(Context, Length, 0xE0 | ((Char >> 12) & 0x0F));
+          Length = _djPutCharInBuffer(Context, Length, 0x80 | ((Char >> 0 ) & 0x3F));
+          Length = _djPutCharInBuffer(Context, Length, 0x80 | ((Char >> 6 ) & 0x3F));
+          Length = _djPutCharInBuffer(Context, Length, 0xE0 | ((Char >> 12) & 0x0F));
         } else if (Value >= 0x80) {
-          Length = __JsonPutCharInBuffer(Context, Length, 0x80 | ((Char >> 0) & 0x3F));
-          Length = __JsonPutCharInBuffer(Context, Length, 0xC0 | ((Char >> 6) & 0x1F));
+          Length = _djPutCharInBuffer(Context, Length, 0x80 | ((Char >> 0) & 0x3F));
+          Length = _djPutCharInBuffer(Context, Length, 0xC0 | ((Char >> 6) & 0x1F));
         } else {
-          Length = __JsonPutCharInBuffer(Context, Length, Char);
+          Length = _djPutCharInBuffer(Context, Length, Char);
         }
         continue;
       } else {
-        JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
-                                           "Unrecognised escape character. ");
+        djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
+                                         "Unrecognised escape character. ");
         return ErrorResult;
       }
     } else if (Char == '\n' || Char == '\r') {
-      JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
-                                         "Reached end of the line before closing the string. ");
+      djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
+                                       "Reached end of the line before closing the string. ");
       return ErrorResult;
     }
     
-    Length = __JsonPutCharInBuffer(Context, Length, Char);
+    Length = _djPutCharInBuffer(Context, Length, Char);
     CurrentChar += 1;
   }
   
   if (Char != '"') {
-    JsonReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
-                                       "Reached end of the file before closing the string. ");
+    djReadReportErrorIfNoErrorExists(Context, CurrentChar, CurrentChar + 1,
+                                     "Reached end of the file before closing the string. ");
     return ErrorResult;
   }
   CurrentChar += 1;
   
   Context->CurrentChar = CurrentChar;
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
   
-  Length = __JsonPutCharInBuffer(Context, Length, '\0');
+  Length = _djPutCharInBuffer(Context, Length, '\0');
   
-  json_string Result;
+  dj_string Result;
   Result.Data = Context->StringBuffer;
   Result.Length = Length;
   return Result;
 }
 
-void JsonReadNull(json_read_context* Context) {
+void djReadNull(dj_read_context* Context) {
   assert(Context->ShouldReadValueNext);
   Context->ShouldReadValueNext = 0;
   
@@ -1030,41 +1030,41 @@ void JsonReadNull(json_read_context* Context) {
   if (memcmp(Context->CurrentChar, NULL_STR, sizeof(NULL_STR) - 1) == 0) {
     Context->CurrentChar += sizeof(NULL_STR) - 1;
   } else {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
-                                       "Expected 'null'. ", Context->LineNumber);
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+                                     "Expected 'null'. ", Context->LineNumber);
   }
-  __JsonEatWhiteSpaces(Context);
+  _djEatWhiteSpaces(Context);
 }
 
-void JsonReadEOF(json_read_context* Context) {
+void djReadEOF(dj_read_context* Context) {
   if (*Context->CurrentChar != '\0') {
-    JsonReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
-                                       "Unexpected content at end of file. ");
+    djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1, 
+                                     "Unexpected content at end of file. ");
   }
 }
 
-int JsonReadNextIsObject(json_read_context* Context) { 
+int djReadNextIsObject(dj_read_context* Context) { 
   return *Context->CurrentChar == '{';  
 }
 
-int JsonReadNextIsArray( json_read_context* Context) { 
+int djReadNextIsArray( dj_read_context* Context) { 
   return *Context->CurrentChar == '[';  
 }
 
-int JsonReadNextIsBool(  json_read_context* Context) { 
+int djReadNextIsBool(  dj_read_context* Context) { 
   return *Context->CurrentChar == 't' || *Context->CurrentChar == 'f';  
 }
 
-int JsonReadNextIsNumber(json_read_context* Context) { 
+int djReadNextIsNumber(dj_read_context* Context) { 
   return (*Context->CurrentChar >= '0' && *Context->CurrentChar <= '9') || 
     *Context->CurrentChar == '-';  
 }
 
-int JsonReadNextIsString(json_read_context* Context) { 
+int djReadNextIsString(dj_read_context* Context) { 
   return *Context->CurrentChar == '"';  
 }
 
-int JsonReadNextIsNull(  json_read_context* Context) { 
+int djReadNextIsNull(  dj_read_context* Context) { 
   return *Context->CurrentChar == 'n';  
 }
 
@@ -1072,14 +1072,14 @@ int JsonReadNextIsNull(  json_read_context* Context) {
 // Write Implementation
 // ===============================================================================
 
-const char __Json_Spaces_Array[]= "                                                             ";
+const char _dj_Spaces_Array[]= "                                                             ";
 enum {
-  __Json_Context_Clue_First_Item,
-  __Json_Context_Clue_Member_Value,
-  __Json_Context_Clue_Write_Comma
+  _dj_Context_Clue_First_Item,
+  _dj_Context_Clue_Member_Value,
+  _dj_Context_Clue_Write_Comma
 };
 
-static void __JsonFlushBuffer(json_write_context* Context) {
+static void _djFlushBuffer(dj_write_context* Context) {
   if (Context->TargetFile) {
     size_t AmountWritten = fwrite(Context->Buffer, 1, Context->Used, Context->TargetFile);
     if (AmountWritten != Context->Used && !Context->Error) {
@@ -1096,14 +1096,14 @@ static void __JsonFlushBuffer(json_write_context* Context) {
   }
 }
 
-static void __JsonWriteChar(json_write_context* Context, char Char) {
+static void _djWriteChar(dj_write_context* Context, char Char) {
   if (Context->Used == Context->Size) {
-    __JsonFlushBuffer(Context);
+    _djFlushBuffer(Context);
   }
   Context->Buffer[Context->Used++] = Char;
 }
 
-static void __JsonWriteN(json_write_context* Context, const char* Data, int Count) {
+static void _djWriteN(dj_write_context* Context, const char* Data, int Count) {
   int AmountWritten = 0;
   while (1) {
     int AmountToWrite = min(Count - AmountWritten, Context->Size - Context->Used);
@@ -1113,47 +1113,47 @@ static void __JsonWriteN(json_write_context* Context, const char* Data, int Coun
     if (AmountWritten == Count) {
       break;
     } else {
-      __JsonFlushBuffer(Context);
+      _djFlushBuffer(Context);
     }
   }
 }
 
-static void __JsonWriteNewItem(json_write_context* Context) {
+static void _djWriteNewItem(dj_write_context* Context) {
   if (Context->PrettyPrint) {
     if (Context->IsRootValue) {
       Context->IsRootValue = 0;
     } else {
-      if (Context->ContextClue != __Json_Context_Clue_Member_Value) {
-        if (Context->ContextClue == __Json_Context_Clue_Write_Comma)
-          __JsonWriteChar(Context, ',');
-        __JsonWriteChar(Context, '\n');
+      if (Context->ContextClue != _dj_Context_Clue_Member_Value) {
+        if (Context->ContextClue == _dj_Context_Clue_Write_Comma)
+          _djWriteChar(Context, ',');
+        _djWriteChar(Context, '\n');
         int SpacesLeftToWrite = Context->Indention;
         while (SpacesLeftToWrite > 0) {
-          int SpacesWritten = min(SpacesLeftToWrite, sizeof(__Json_Spaces_Array) - 1);
-          __JsonWriteN(Context, __Json_Spaces_Array, SpacesWritten);
+          int SpacesWritten = min(SpacesLeftToWrite, sizeof(_dj_Spaces_Array) - 1);
+          _djWriteN(Context, _dj_Spaces_Array, SpacesWritten);
           SpacesLeftToWrite -= SpacesWritten;
         }
       } else {
-        __JsonWriteChar(Context, ' ');
+        _djWriteChar(Context, ' ');
       }
     }
   } else {
     switch (Context->ContextClue) {
-      case __Json_Context_Clue_First_Item: {
+      case _dj_Context_Clue_First_Item: {
       } break;
-      case __Json_Context_Clue_Member_Value: {
+      case _dj_Context_Clue_Member_Value: {
       } break;
-      case __Json_Context_Clue_Write_Comma: {
-        __JsonWriteChar(Context, ',');
+      case _dj_Context_Clue_Write_Comma: {
+        _djWriteChar(Context, ',');
       } break;
     }
   }
-  Context->ContextClue = __Json_Context_Clue_Write_Comma;
+  Context->ContextClue = _dj_Context_Clue_Write_Comma;
 }
 
-static json_write_context* __JsonCreateWriteContext(int BufferSize) {
-  json_write_context* Context = calloc(1, sizeof(json_write_context));
-  Context->ContextClue = __Json_Context_Clue_First_Item;
+static dj_write_context* _djCreateWriteContext(int BufferSize) {
+  dj_write_context* Context = calloc(1, sizeof(dj_write_context));
+  Context->ContextClue = _dj_Context_Clue_First_Item;
   Context->IsRootValue = 1;
   
   Context->Size   = BufferSize > 0 ? BufferSize : 512;
@@ -1162,8 +1162,8 @@ static json_write_context* __JsonCreateWriteContext(int BufferSize) {
   return Context;
 }
 
-json_write_context* JsonWriteInitializeContextTargetString(int StartBufferSize) {
-  json_write_context* Context = __JsonCreateWriteContext(StartBufferSize);
+dj_write_context* djWriteInitializeContextTargetString(int StartBufferSize) {
+  dj_write_context* Context = _djCreateWriteContext(StartBufferSize);
   
   Context->Size   = 128;
   Context->Buffer = malloc(Context->Size);
@@ -1171,18 +1171,18 @@ json_write_context* JsonWriteInitializeContextTargetString(int StartBufferSize) 
   return Context;
 }
 
-json_write_context* JsonWriteInitializeContextTargetFile(FILE* File, int BufferSize) {
-  json_write_context* Context = __JsonCreateWriteContext(BufferSize);
+dj_write_context* djWriteInitializeContextTargetFile(FILE* File, int BufferSize) {
+  dj_write_context* Context = _djCreateWriteContext(BufferSize);
   
   Context->TargetFile  = File;
   
   return Context;
 }
 
-json_write_context* JsonWriteInitializeContextTargetFilePath(const char* FilePath, int BufferSize) {
+dj_write_context* djWriteInitializeContextTargetFilePath(const char* FilePath, int BufferSize) {
   FILE* File = fopen(FilePath, "w");
   
-  json_write_context* Context = __JsonCreateWriteContext(BufferSize);
+  dj_write_context* Context = _djCreateWriteContext(BufferSize);
   
   Context->TargetFile      = File;
   Context->ShouldCloseFile = File != 0;
@@ -1191,96 +1191,96 @@ json_write_context* JsonWriteInitializeContextTargetFilePath(const char* FilePat
   return Context;
 }
 
-json_write_context* JsonWriteInitializeContextTargetCustom(json_write_callback Callback, int BufferSize)  {
-  json_write_context* Context = __JsonCreateWriteContext(BufferSize);
+dj_write_context* djWriteInitializeContextTargetCustom(dj_write_callback Callback, int BufferSize)  {
+  dj_write_context* Context = _djCreateWriteContext(BufferSize);
   
   Context->Callback = Callback;
   
   return Context;
 }
 
-void JsonWriteSetPrettyPrint(json_write_context* Context, int ShouldPrettyPrint) {
+void djWriteSetPrettyPrint(dj_write_context* Context, int ShouldPrettyPrint) {
   Context->PrettyPrint = ShouldPrettyPrint;
 }
 
-char* JsonWriteFinalize(json_write_context* Context) {
+char* djWriteFinalize(dj_write_context* Context) {
   char* Result = 0;
   if (Context->TargetFile) {
-    __JsonFlushBuffer(Context);
+    _djFlushBuffer(Context);
     if (Context->ShouldCloseFile) {
       fclose(Context->TargetFile);
     }
   } else if (Context->Callback) {
-    __JsonWriteChar(Context, '\0');
+    _djWriteChar(Context, '\0');
     Context->Callback(Context, Context->Buffer, Context->Used);
   } else {
-    __JsonWriteChar(Context, '\0');
+    _djWriteChar(Context, '\0');
     Result = Context->Buffer;
     Context->Buffer = 0;
   }
   return Result;
 }
 
-void JsonWriteDestroyContext(json_write_context* Context) {
+void djWriteDestroyContext(dj_write_context* Context) {
   free(Context->Buffer);
   free(Context);
 }
 
-void JsonWriteStartObject(json_write_context* Context) {
-  __JsonWriteNewItem(Context);
+void djWriteStartObject(dj_write_context* Context) {
+  _djWriteNewItem(Context);
   
-  __JsonWriteChar(Context, '{');
-  Context->ContextClue = __Json_Context_Clue_First_Item;
+  _djWriteChar(Context, '{');
+  Context->ContextClue = _dj_Context_Clue_First_Item;
   Context->Indention += DIR_JSON_WRITE_INDENTION_SPACE_COUNT;
 }
 
-void JsonWriteKey(json_write_context* Context, const char* Key) {
-  JsonWriteString(Context, Key);
-  __JsonWriteChar(Context, ':');
-  Context->ContextClue = __Json_Context_Clue_Member_Value;
+void djWriteKey(dj_write_context* Context, const char* Key) {
+  djWriteString(Context, Key);
+  _djWriteChar(Context, ':');
+  Context->ContextClue = _dj_Context_Clue_Member_Value;
 }
 
-void JsonWriteEndObject(json_write_context* Context) {
+void djWriteEndObject(dj_write_context* Context) {
   Context->Indention -= DIR_JSON_WRITE_INDENTION_SPACE_COUNT;
-  Context->ContextClue = __Json_Context_Clue_First_Item;
-  __JsonWriteNewItem(Context);
+  Context->ContextClue = _dj_Context_Clue_First_Item;
+  _djWriteNewItem(Context);
   
-  __JsonWriteChar(Context, '}');
+  _djWriteChar(Context, '}');
 }
 
-void JsonWriteStartArray(json_write_context* Context) {
-  __JsonWriteNewItem(Context);
+void djWriteStartArray(dj_write_context* Context) {
+  _djWriteNewItem(Context);
   
-  __JsonWriteChar(Context, '[');
-  Context->ContextClue = __Json_Context_Clue_First_Item;
+  _djWriteChar(Context, '[');
+  Context->ContextClue = _dj_Context_Clue_First_Item;
   Context->Indention += DIR_JSON_WRITE_INDENTION_SPACE_COUNT;
 }
 
-void JsonWriteEndArray(json_write_context* Context) {
+void djWriteEndArray(dj_write_context* Context) {
   Context->Indention -= DIR_JSON_WRITE_INDENTION_SPACE_COUNT;
-  Context->ContextClue = __Json_Context_Clue_First_Item;
-  __JsonWriteNewItem(Context);
+  Context->ContextClue = _dj_Context_Clue_First_Item;
+  _djWriteNewItem(Context);
   
-  __JsonWriteChar(Context, ']');
+  _djWriteChar(Context, ']');
 }
 
-void JsonWriteBool(json_write_context* Context, int Value) {
-  __JsonWriteNewItem(Context);
+void djWriteBool(dj_write_context* Context, int Value) {
+  _djWriteNewItem(Context);
   
   static const char TRUE_STR[]  = "true";
   static const char FALSE_STR[] = "false";
   if (Value)
-    __JsonWriteN(Context, TRUE_STR,  sizeof(TRUE_STR ) - 1);
+    _djWriteN(Context, TRUE_STR,  sizeof(TRUE_STR ) - 1);
   else
-    __JsonWriteN(Context, FALSE_STR, sizeof(FALSE_STR) - 1);
+    _djWriteN(Context, FALSE_STR, sizeof(FALSE_STR) - 1);
 }
 
-void JsonWriteS64(json_write_context* Context, json_s64 Value) {
-  __JsonWriteNewItem(Context);
+void djWriteS64(dj_write_context* Context, dj_s64 Value) {
+  _djWriteNewItem(Context);
   
   char Buffer[32];
   int BufferLeft = sizeof(Buffer);
-  json_s64 ValueIterator = llabs(Value);
+  dj_s64 ValueIterator = llabs(Value);
   
   do {
     int Digit = (int)(ValueIterator % 10);
@@ -1293,46 +1293,46 @@ void JsonWriteS64(json_write_context* Context, json_s64 Value) {
   }
   
   int NumDigits = sizeof(Buffer) - BufferLeft;
-  __JsonWriteN(Context, Buffer + BufferLeft, NumDigits);
+  _djWriteN(Context, Buffer + BufferLeft, NumDigits);
 }
 
-void JsonWriteF64(json_write_context* Context, json_f64 Value) {
-  __JsonWriteNewItem(Context);
+void djWriteF64(dj_write_context* Context, dj_f64 Value) {
+  _djWriteNewItem(Context);
   
   char Buffer[128];
   size_t Size = snprintf(Buffer, sizeof(Buffer), "%f", Value);
   assert(Size + 1 != sizeof(Buffer)); // TODO: Should this check be here?
   
-  __JsonWriteN(Context, Buffer, (int)Size);
+  _djWriteN(Context, Buffer, (int)Size);
 }
 
-void JsonWriteString(json_write_context* Context, const char* Str) {
-  __JsonWriteNewItem(Context);
+void djWriteString(dj_write_context* Context, const char* Str) {
+  _djWriteNewItem(Context);
   
-  __JsonWriteChar(Context, '\"');
+  _djWriteChar(Context, '\"');
   
   while (*Str) {
     switch (*Str) {
-      case '\"': __JsonWriteN(Context, "\\\"", 2); break;
-      case '\\': __JsonWriteN(Context, "\\\\", 2); break;
-      case '\b': __JsonWriteN(Context, "\\b",  2); break;
-      case '\f': __JsonWriteN(Context, "\\f",  2); break;
-      case '\n': __JsonWriteN(Context, "\\n",  2); break;
-      case '\r': __JsonWriteN(Context, "\\r",  2); break;
-      case '\t': __JsonWriteN(Context, "\\t",  2); break;
-      default: __JsonWriteChar(Context, *Str);
+      case '\"': _djWriteN(Context, "\\\"", 2); break;
+      case '\\': _djWriteN(Context, "\\\\", 2); break;
+      case '\b': _djWriteN(Context, "\\b",  2); break;
+      case '\f': _djWriteN(Context, "\\f",  2); break;
+      case '\n': _djWriteN(Context, "\\n",  2); break;
+      case '\r': _djWriteN(Context, "\\r",  2); break;
+      case '\t': _djWriteN(Context, "\\t",  2); break;
+      default: _djWriteChar(Context, *Str);
     }
     ++Str;
   }
   
-  __JsonWriteChar(Context, '\"');
+  _djWriteChar(Context, '\"');
 }
 
-void JsonWriteNull(json_write_context* Context) {
-  __JsonWriteNewItem(Context);
+void djWriteNull(dj_write_context* Context) {
+  _djWriteNewItem(Context);
   
   static const char NULL_STR[] = "null";
-  __JsonWriteN(Context, NULL_STR, sizeof(NULL_STR) - 1);
+  _djWriteN(Context, NULL_STR, sizeof(NULL_STR) - 1);
 }
 
 
