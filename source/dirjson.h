@@ -694,7 +694,7 @@ int djReadExpectKey(dj_read_context* Context, const char* ExpectedKey) {
   return 1;
 }
 
-int djReadEndObject(dj_read_context* Context) {
+int djReadObjectEnd(dj_read_context* Context) {
   if (!_djEatCharacter(Context, '}')) {
     djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
                                      "Expected end of object.");

@@ -131,7 +131,7 @@ void TestReadObject(dj_read_context* Context) {
   EXPECT_TRUE(djReadBool(Context) == 1);
   EXPECT_TRUE(djReadExpectKey(Context, "afdsf") == 1);
   EXPECT_TRUE(djReadArray(Context) == 0);
-  EXPECT_TRUE(djReadEndObject(Context) == 1);
+  EXPECT_TRUE(djReadObjectEnd(Context) == 1);
 }
 
 static const char TestReadEmptyObjectInObject__Json[] = " { \"key\" : {  } }";
@@ -141,7 +141,7 @@ void TestReadEmptyObjectInObject(dj_read_context* Context) {
   {
     EXPECT_TRUE(djReadKey(Context, &Key) == 0);
   }
-  EXPECT_TRUE(djReadEndObject(Context) == 1);
+  EXPECT_TRUE(djReadObjectEnd(Context) == 1);
 }
 
 static const char TestReadEmptyArray__Json[] = "  [  ]";
