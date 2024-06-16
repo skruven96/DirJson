@@ -70,6 +70,12 @@
 #define DIR_JSON_H
 #include <stdio.h>
 
+#ifdef __cplusplus
+#define DIR_JSON_EXTERN extern "C"
+#else
+#define DIR_JSON_EXTERN
+#endif
+
 typedef struct dj_read_context dj_read_context;
 typedef struct dj_write_context dj_write_context;
 typedef struct dj_callbacks_object dj_callbacks_object;
@@ -90,8 +96,8 @@ typedef struct {
 // Object Callbacks
 // ===============================================================================
 
-#define JSON_OPTIONAL  0
-#define JSON_MANDATORY 1
+#define djOPTIONAL  0
+#define djMANDATORY 1
 
 typedef void(*dj_member_callback)(dj_read_context* Context, void* Ptr);
 typedef void(*dj_key_callback)(dj_read_context* Context, void* Ptr, dj_string Key);
@@ -102,43 +108,43 @@ typedef struct {
   int Mandatory;
 } dj_member;
 
-dj_callbacks_object* djInitializeObject(dj_member* Members, int MemberCount, dj_key_callback UnknownKeyCallback);
-void djDestroyObject(dj_callbacks_object* Object);
+DIR_JSON_EXTERN dj_callbacks_object* djInitializeObject(dj_member* Members, int MemberCount, dj_key_callback UnknownKeyCallback);
+DIR_JSON_EXTERN void djDestroyObject(dj_callbacks_object* Object);
 
 // ===============================================================================
 // Reading
 // ===============================================================================
 
-dj_read_context* djReadReadFile(FILE* File);
-dj_read_context* djReadOpenAndReadFile(const char* FilePath);
-dj_read_context* djReadFromString(const char* JsonString);
-void djReadDestroyContext(dj_read_context* Context);
+DIR_JSON_EXTERN dj_read_context* djReadReadFile(FILE* File);
+DIR_JSON_EXTERN dj_read_context* djReadOpenAndReadFile(const char* FilePath);
+DIR_JSON_EXTERN dj_read_context* djReadFromString(const char* JsonString);
+DIR_JSON_EXTERN void djReadDestroyContext(dj_read_context* Context);
 
-void djReadReportErrorIfNoErrorExists(dj_read_context* Context, const char* Start, const char* OnePastLast,
+DIR_JSON_EXTERN void djReadReportErrorIfNoErrorExists(dj_read_context* Context, const char* Start, const char* OnePastLast,
                                       const char* FormatString, ...);
-const char* djReadError(dj_read_context* Context);
+DIR_JSON_EXTERN const char* djReadError(dj_read_context* Context);
 
-void      djReadObjectUsingCallbacks(dj_read_context* Context, dj_callbacks_object* Object, void* Ptr);
-int       djReadKey(      dj_read_context* Context, dj_string* KeyOut);
-int       djReadExpectKey(dj_read_context* Context, const char* Key);
-int       djReadObjectEnd(dj_read_context* Context);
+DIR_JSON_EXTERN void      djReadObjectUsingCallbacks(dj_read_context* Context, dj_callbacks_object* Object, void* Ptr);
+DIR_JSON_EXTERN int       djReadKey(      dj_read_context* Context, dj_string* KeyOut);
+DIR_JSON_EXTERN int       djReadExpectKey(dj_read_context* Context, const char* Key);
+DIR_JSON_EXTERN int       djReadObjectEnd(dj_read_context* Context);
 
-int       djReadArray( dj_read_context* Context);
-int       djReadBool(  dj_read_context* Context);
-dj_s64    djReadS64(   dj_read_context* Context);
-dj_f64    djReadF64(   dj_read_context* Context);
-dj_string djReadString(dj_read_context* Context);
-void      djReadNull(  dj_read_context* Context);
-void      djReadEOF(   dj_read_context* Context);
+DIR_JSON_EXTERN int       djReadArray( dj_read_context* Context);
+DIR_JSON_EXTERN int       djReadBool(  dj_read_context* Context);
+DIR_JSON_EXTERN dj_s64    djReadS64(   dj_read_context* Context);
+DIR_JSON_EXTERN dj_f64    djReadF64(   dj_read_context* Context);
+DIR_JSON_EXTERN dj_string djReadString(dj_read_context* Context);
+DIR_JSON_EXTERN void      djReadNull(  dj_read_context* Context);
+DIR_JSON_EXTERN void      djReadEOF(   dj_read_context* Context);
 
 // Returns true if the next value is of the respective type.
 // Doesn't check that the value is legally formatted. For example djReadNextIsNull will return 1 for noll.
-int djReadNextIsObject(dj_read_context* Context);
-int djReadNextIsArray( dj_read_context* Context);
-int djReadNextIsBool(  dj_read_context* Context);
-int djReadNextIsNumber(dj_read_context* Context);
-int djReadNextIsString(dj_read_context* Context);
-int djReadNextIsNull(  dj_read_context* Context);
+DIR_JSON_EXTERN int djReadNextIsObject(dj_read_context* Context);
+DIR_JSON_EXTERN int djReadNextIsArray( dj_read_context* Context);
+DIR_JSON_EXTERN int djReadNextIsBool(  dj_read_context* Context);
+DIR_JSON_EXTERN int djReadNextIsNumber(dj_read_context* Context);
+DIR_JSON_EXTERN int djReadNextIsString(dj_read_context* Context);
+DIR_JSON_EXTERN int djReadNextIsNull(  dj_read_context* Context);
 
 
 // ===============================================================================
@@ -147,26 +153,26 @@ int djReadNextIsNull(  dj_read_context* Context);
 
 typedef void(*dj_write_callback)(dj_write_context*, char* Data, int Size);
 
-dj_write_context* djWriteInitializeContextTargetString(int StartBufferSize);
-dj_write_context* djWriteInitializeContextTargetFile(FILE* File, int BufferSize);
-dj_write_context* djWriteInitializeContextTargetFilePath(const char* FilePath, int BufferSize);
-dj_write_context* djWriteInitializeContextTargetCustom(dj_write_callback Callback, int BufferSize);
+DIR_JSON_EXTERN dj_write_context* djWriteInitializeContextTargetString(int StartBufferSize);
+DIR_JSON_EXTERN dj_write_context* djWriteInitializeContextTargetFile(FILE* File, int BufferSize);
+DIR_JSON_EXTERN dj_write_context* djWriteInitializeContextTargetFilePath(const char* FilePath, int BufferSize);
+DIR_JSON_EXTERN dj_write_context* djWriteInitializeContextTargetCustom(dj_write_callback Callback, int BufferSize);
 
-void djWriteSetPrettyPrint(dj_write_context* Context, int ShouldPrettyPrint);
+DIR_JSON_EXTERN void djWriteSetPrettyPrint(dj_write_context* Context, int ShouldPrettyPrint);
 
-char* djWriteFinalize(      dj_write_context* Context);
-void  djWriteDestroyContext(dj_write_context* Context);
+DIR_JSON_EXTERN char* djWriteFinalize(      dj_write_context* Context);
+DIR_JSON_EXTERN void  djWriteDestroyContext(dj_write_context* Context);
 
-void djWriteStartObject(dj_write_context* Context);
-void djWriteKey(        dj_write_context* Context, const char* Key);
-void djWriteEndObject(  dj_write_context* Context);
-void djWriteStartArray( dj_write_context* Context);
-void djWriteEndArray(   dj_write_context* Context);
-void djWriteBool(       dj_write_context* Context, int Value);
-void djWriteS64(        dj_write_context* Context, dj_s64 Value);
-void djWriteF64(        dj_write_context* Context, dj_f64 Value);
-void djWriteString(     dj_write_context* Context, const char* Str);
-void djWriteNull(       dj_write_context* Context);
+DIR_JSON_EXTERN void djWriteStartObject(dj_write_context* Context);
+DIR_JSON_EXTERN void djWriteKey(        dj_write_context* Context, const char* Key);
+DIR_JSON_EXTERN void djWriteEndObject(  dj_write_context* Context);
+DIR_JSON_EXTERN void djWriteStartArray( dj_write_context* Context);
+DIR_JSON_EXTERN void djWriteEndArray(   dj_write_context* Context);
+DIR_JSON_EXTERN void djWriteBool(       dj_write_context* Context, int Value);
+DIR_JSON_EXTERN void djWriteS64(        dj_write_context* Context, dj_s64 Value);
+DIR_JSON_EXTERN void djWriteF64(        dj_write_context* Context, dj_f64 Value);
+DIR_JSON_EXTERN void djWriteString(     dj_write_context* Context, const char* Str);
+DIR_JSON_EXTERN void djWriteNull(       dj_write_context* Context);
 
 
 // ===============================================================================
