@@ -125,19 +125,31 @@ void TestReadEmptyObject(dj_read_context* Context) {
 
 static const char TestReadObject__Json[] = " { \"key1\": 13, \"\": true, \"afdsf\": [ ] }";
 void TestReadObject(dj_read_context* Context) {
-  EXPECT_TRUE(djReadExpectKey(Context, "key1") == 1);
+  EXPECT_TRUE(djReadMandatoryKey(Context, "key1") == 1);
   EXPECT_TRUE(djReadS64(Context) == 13);
-  EXPECT_TRUE(djReadExpectKey(Context, "") == 1);
+  EXPECT_TRUE(djReadMandatoryKey(Context, "") == 1);
   EXPECT_TRUE(djReadBool(Context) == 1);
-  EXPECT_TRUE(djReadExpectKey(Context, "afdsf") == 1);
+  EXPECT_TRUE(djReadMandatoryKey(Context, "afdsf") == 1);
   EXPECT_TRUE(djReadArray(Context) == 0);
+  EXPECT_TRUE(djReadObjectEnd(Context) == 1);
+}
+
+static const char TestReadObjectOptionalKeys__Json[] = " { \"key1\": true, \"key3\": true, \"key4\": true }";
+void TestReadObjectOptionalKeys(dj_read_context* Context) {
+  EXPECT_TRUE(djReadOptionalKey(Context, "key1") == 1);
+  EXPECT_TRUE(djReadBool(Context) == 1);
+  EXPECT_TRUE(djReadOptionalKey(Context, "key2") == 0);
+  EXPECT_TRUE(djReadOptionalKey(Context, "key3") == 1);
+  EXPECT_TRUE(djReadBool(Context) == 1);
+  EXPECT_TRUE(djReadOptionalKey(Context, "key4") == 1);
+  EXPECT_TRUE(djReadBool(Context) == 1);
   EXPECT_TRUE(djReadObjectEnd(Context) == 1);
 }
 
 static const char TestReadEmptyObjectInObject__Json[] = " { \"key\" : {  } }";
 void TestReadEmptyObjectInObject(dj_read_context* Context) {
   dj_string Key;
-  EXPECT_TRUE(djReadExpectKey(Context, "key") == 1);
+  EXPECT_TRUE(djReadMandatoryKey(Context, "key") == 1);
   {
     EXPECT_TRUE(djReadKey(Context, &Key) == 0);
   }
@@ -212,6 +224,7 @@ static test_error ErrorTests[] = {
 #define SUCCESS_TEST(Name) { #Name, Name##__Json, Name }
 static test_success SuccessTests[] = {
   SUCCESS_TEST(TestReadEmptyObject),
+  SUCCESS_TEST(TestReadObjectOptionalKeys),
   SUCCESS_TEST(TestReadEmptyObjectInObject),
   SUCCESS_TEST(TestReadEmptyArray),
   SUCCESS_TEST(TestReadArray),

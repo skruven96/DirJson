@@ -53,12 +53,14 @@
 // Expecting the keys, if the keys comes in a known order they can easily be verified and parsed
 //   struct vec_t { int X, int Y };
 //   struct vec_t Vec;
-//   djReadExpectKey(Context, "x");
+//   djReadMandatoryKey(Context, "x");
 //   Vec.X = djReadS64(Context);
-//   djReadExpectKey(Context, "y");
-//   Vec.X = djReadS64(Context);
+//   if (djReadOptionalKey(Context, "y")) {
+//     Vec.Y = djReadS64(Context);
+//   }
 //   djReadObjectEnd();
-// djReadExpectKey reads the next key and verifies checks that it matches the expected. Returns 0 if anything went wrong.
+// djReadMandatoryKey reads the next key and verifies checks that it matches the expected. Returns 0 if anything went wrong.
+// djReadOptionalKey reads the next key if it matches the expected. Returns 1 if it matches, otherwise 0.
 // djReadObjectEnd checks that the end of the object is reached. Returns 0 if anything went wrong.
 // 
 // WRITING
@@ -125,9 +127,10 @@ DIR_JSON_EXTERN void djReadReportErrorIfNoErrorExists(dj_read_context* Context, 
 DIR_JSON_EXTERN const char* djReadError(dj_read_context* Context);
 
 DIR_JSON_EXTERN void      djReadObjectUsingCallbacks(dj_read_context* Context, dj_callbacks_object* Object, void* Ptr);
-DIR_JSON_EXTERN int       djReadKey(      dj_read_context* Context, dj_string* KeyOut);
-DIR_JSON_EXTERN int       djReadExpectKey(dj_read_context* Context, const char* Key);
-DIR_JSON_EXTERN int       djReadObjectEnd(dj_read_context* Context);
+DIR_JSON_EXTERN int       djReadKey(         dj_read_context* Context, dj_string* KeyOut);
+DIR_JSON_EXTERN int       djReadOptionalKey( dj_read_context* Context, const char* Key);
+DIR_JSON_EXTERN int       djReadMandatoryKey(dj_read_context* Context, const char* Key);
+DIR_JSON_EXTERN int       djReadObjectEnd(   dj_read_context* Context);
 
 DIR_JSON_EXTERN int       djReadArray( dj_read_context* Context);
 DIR_JSON_EXTERN int       djReadBool(  dj_read_context* Context);
@@ -230,7 +233,9 @@ struct dj_read_context {
   
   const char* StartOfCurrentLine;
   int LineNumber;
-  int ShouldReadValueNext; // NOTE: If false a comma, }, ] or EOF should be read. Else a value.
+  int ShouldReadValueNext; // NOTE: If false a ',', '}', ']' or EOF should be read. Else a value.
+  
+  dj_string CachedKey;
   
   const char* Error;
   
@@ -413,6 +418,8 @@ static dj_read_context* _djCreateReadContext() {
   Context->JsonDataOwnagePtr = 0;
   Context->JsonData     = "\0";
   Context->CurrentChar  = Context->JsonData;
+  
+  Context->CachedKey = (dj_string) { 0, 0 };
   
   Context->StartOfCurrentLine = Context->JsonData;
   Context->LineNumber = 1;
@@ -637,6 +644,12 @@ const char* djReadError(dj_read_context* Context) {
 }
 
 int djReadKey(dj_read_context* Context, dj_string* KeyOut) {
+  if (Context->CachedKey.Data) {
+    *KeyOut = Context->CachedKey;
+    Context->CachedKey.Data = 0;
+    return 1;
+  }
+  
   if (Context->ShouldReadValueNext) {
     if (!_djEatCharacter(Context, '{')) {
       djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
@@ -679,19 +692,30 @@ int djReadKey(dj_read_context* Context, dj_string* KeyOut) {
   return 1;
 }
 
-int djReadExpectKey(dj_read_context* Context, const char* ExpectedKey) {
+int djReadMandatoryKey(dj_read_context* Context, const char* ExpectedKey) {
   dj_string Key;
-  if (djReadKey(Context, &Key) == 0) {
-    return 0;
-  }
-  
+  djReadKey(Context, &Key);
   if (strcmp(Key.Data, ExpectedKey) != 0) {
     djReadReportErrorIfNoErrorExists(Context, Context->CurrentChar, Context->CurrentChar + 1,
                                      "Unexpected key found, expected '%s' got '%s'.", ExpectedKey, Key.Data);
     return 0;
   }
-  
   return 1;
+}
+
+int djReadOptionalKey(dj_read_context* Context, const char* ExpectedKey) {
+  dj_string Key;
+  djReadKey(Context, &Key);
+  
+  int Success = 0;
+  
+  if (strcmp(Key.Data, ExpectedKey) == 0) {
+    Success = 1;
+  } else {
+    Context->CachedKey = Key;
+  }
+  
+  return Success;
 }
 
 int djReadObjectEnd(dj_read_context* Context) {
@@ -920,7 +944,7 @@ dj_string djReadString(dj_read_context* Context) {
   assert(Context->ShouldReadValueNext);
   Context->ShouldReadValueNext = 0;
   
-  const dj_string ErrorResult = { 0, 0 };
+  const dj_string ErrorResult = { 0, "" };
   const char* CurrentChar = Context->CurrentChar;
   int Length = 0;
   
